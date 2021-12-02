@@ -3,8 +3,10 @@ import os
 import numpy as np
 import pandas as pd
 import h5py
+import dill
 
 from scipy.stats import multivariate_normal
+from scipy.special import logsumexp
 from astropy.table import Table
 from pygaia.astrometry.vectorastrometry import phase_space_to_astrometry
 from pygaia.astrometry.constants import au_km_year_per_sec,au_mas_parsec
@@ -43,34 +45,15 @@ class Mecayotl(object):
 	https://gdn.iib.unam.mx/termino/search?queryCreiterio=mecayotl&queryPartePalabra=cualquiera&queryBuscarEn=nahuatl&queryLimiteRegistros=50 
 	"""
 
-	def __init__(self,
-					path_main,
+	def __init__(self,path_main,
+					nc_cluster=range(1,10),
+					nc_field=range(1,10),
 					path_mcmichael = "/home/jolivares/Repos/McMichael/",
 					path_amasijo   = "/home/jolivares/Repos/Amasijo/",
-					cmap_probability="coolwarm",
+					cmap_probability="viridis_r",
 					cmap_features="viridis_r",
 					seed=1234):
 
-		#------ Set Seed -----------------
-		np.random.seed(seed=seed)
-		self.random_state = np.random.RandomState(seed=seed)
-		#----------------------------------------------------
-
-		#------------- Directories -----------------
-		self.dir_mcmi      = path_mcmichael
-		self.dir_amasijo   = path_amasijo
-		self.path_main     = path_main
-		#--------------------------------------
-
-		#---------------- Files -----------------
-		self.file_samples   = self.path_main + "Real/Data/members_synthetic.csv"
-
-		self.cmap_prob = plt.get_cmap(cmap_probability)
-		self.cmap_feat = plt.get_cmap(cmap_features)
-		self.idxs      = [[0,1],[2,1],[0,2],[3,4],[5,4],[3,5]]
-		self.plots     = [["ra","dec"],["pmra","pmdec"],["parallax","pmdec"],["g_rp","g"]]
-		
-		self.labels_obs = ["ra","dec","parallax","pmra","pmdec","radial_velocity"]
 		gaia_observables = [
 		"ra","dec","parallax","pmra","pmdec","dr2_radial_velocity",
 		"ra_error","dec_error","parallax_error","pmra_error","pmdec_error","dr2_radial_velocity_error",
@@ -78,51 +61,58 @@ class Mecayotl(object):
 		"dec_parallax_corr","dec_pmra_corr","dec_pmdec_corr",
 		"parallax_pmra_corr","parallax_pmdec_corr",
 		"pmra_pmdec_corr"]
-		self.OBS = gaia_observables[0:6]
-		self.UNC = gaia_observables[6:12]
-		self.RHO = gaia_observables[12:]
 
-		#------------- Cases -------------------------------
+		#------ Set Seed -----------------
+		np.random.seed(seed=seed)
+		self.random_state = np.random.RandomState(seed=seed)
+		#----------------------------------------------------
+
+		#------------- Directories -----------------
+		self.dir_mcmi       = path_mcmichael
+		self.dir_amasijo    = path_amasijo
+		self.path_main      = path_main
+		#--------------------------------------
+
+		#---------------- Files --------------------------------------------------
+		self.file_smp_base   = path_main + "/{0}/Data/members_synthetic.csv"
 		self.file_hdf_base   = path_main + "/{0}/Data/catalogue.h5"
 		self.file_data_base  = path_main + "/{0}/Data/data.h5"
 		self.file_model_base = path_main + "/{0}/Models/{1}_GMM_{2}.h5"
 		self.file_comparison = path_main + "/{0}/Models/{1}_comparison.png"
-		self.cases = [
-		{"name":"Field",
-		"data_name":"mu_field",
-		"components":range(10,15,1),
-		"file_base": "{0}/Field_GMM_{1}.h5",
-		"file_comparison": "{0}/Field_comparison.png",
-		"file_plot": "{0}/Field_GMM_best.pdf"},
-		{"name":"Cluster",
-		"data_name":"mu_syn",
-		"components":range(1,11,1),
-		"file_base": "{0}/Cluster_GMM_{1}.h5",
-		"file_comparison":"{0}/Cluster_comparison.png",
-		"file_plot":"{0}/Cluster_GMM_best.pdf"}
-		]
-		#-------------------------------------------------- 
+		self.file_qlt_base   = path_main + "/Classification/quality_{0}_{1}.{2}"
+		self.file_mem_data   = path_main + "/Classification/members_mecayotl.csv"
+		self.file_mem_plot   = path_main + "/Classification/members_mecayotl.pdf"
+		#-------------------------------------------------------------------------
+
+		#-------------- Parameters -----------------------------------------------------
+		self.cmap_prob = plt.get_cmap(cmap_probability)
+		self.cmap_feat = plt.get_cmap(cmap_features)
+		self.idxs      = [[0,1],[2,1],[0,2],[3,4],[5,4],[3,5]]
+		self.plots     = [["ra","dec"],["pmra","pmdec"],["parallax","pmdec"],["g_rp","g"]]
+		self.OBS       = gaia_observables[0:6]
+		self.UNC       = gaia_observables[6:12]
+		self.RHO       = gaia_observables[12:]
+		self.nc_case   = {"Field":nc_field,"Cluster":nc_cluster}
+		self.best_gmm  = {}
+		#----------------------------------------------------------------------------------
 
 	def _initialize_mcmichael(self):
-		#======================= Libraries ===============================================
 		#-------------- Commands to replace dimension -----------------------------
 		cmd = 'sed -e "s|DIMENSION|{0}|g"'.format(6)
 		cmd += ' {0}GPU/Functions_base.py > {0}GPU/Functions.py'.format(self.dir_mcmi)
 		os.system(cmd)
 		#--------------------------------------------------------------------------
-		from GPU.gmm import GaussianMixture
-		#=================================================================================
+		sys.path.append(self.dir_mcmi)
 
 	def _initialize_amasijo(self):
 		sys.path.append(self.dir_amasijo)
-		from Amasijo import Amasijo
-		from Quality import ClassifierQuality
 
-
-	def generate_true_cluster(self,file_kalkayotl,n_samples=100):
+	def generate_true_cluster(self,file_kalkayotl,n_samples=100000,instance="Real"):
 		"""
 		Generate synthetic data based on Kalkayotl input parameters
 		"""
+		file_smp  = self.file_smp_base.format(instance)
+
 		param = pd.read_csv(file_kalkayotl,usecols=["Parameter","mode"])
 
 		#---- Extract parameters ------------------------------------------------
@@ -163,7 +153,7 @@ class Mecayotl(object):
 						"pmdec":astrometry_rv[4],
 						"dr2_radial_velocity":astrometry_rv[5]
 						})
-		df.to_csv(self.file_samples,index_label="source_id")
+		df.to_csv(file_smp,index_label="source_id")
 		#---------------------------------------------------
 
 
@@ -172,17 +162,19 @@ class Mecayotl(object):
 		#------------ Files ------------------------------
 		file_data = self.file_data_base.format(instance)
 		file_hdf  = self.file_hdf_base.format(instance)
+		file_smp  = self.file_smp_base.format(instance)
 		#-------------------------------------------------
 
 		#--------------- Read ------------------------------
 		cat = Table.read(file_catalogue, format='fits')
 		df_cat = cat.to_pandas()
 		df_mem = pd.read_csv(file_members,usecols=["source_id"])
-		df_syn = pd.read_csv(self.file_samples,usecols=self.OBS)
+		df_syn = pd.read_csv(file_smp,usecols=self.OBS)
 		#---------------------------------------------------
 
 		n_sources = df_cat.shape[0]
 		mu_syn    = df_syn.to_numpy()
+		sg_syn    = np.zeros((len(mu_syn),6,6))
 
 		#----------- Covariance matrices ------------------
 		print("Filling covariance matrices ...")
@@ -239,6 +231,7 @@ class Mecayotl(object):
 		#---------- Random sample of field sources ------------------
 		idx_rnd  = np.random.choice(idx_fld,size=n_fld,replace=False)
 		mu_field = mu_data[idx_rnd]
+		sg_field = sg_data[idx_rnd]
 		#------------------------------------------------------------
 		
 		#------------- Write -----------------------------------------
@@ -247,29 +240,37 @@ class Mecayotl(object):
 		with h5py.File(file_data, 'w') as hf:
 			hf.create_dataset('mu',         chunks=True,data=mu_data)
 			hf.create_dataset('sg',         chunks=True,data=sg_data)
-			hf.create_dataset('Cluster',    chunks=True,data=mu_syn)
-			hf.create_dataset('Field',      chunks=True,data=mu_field)
-			hf.create_dataset('idx_field',  chunks=True,data=idx_fld)
-			hf.create_dataset('idx_cluster',chunks=True,data=idx_cls)
+			hf.create_dataset('mu_Cluster', chunks=True,data=mu_syn)
+			hf.create_dataset('mu_Field',   chunks=True,data=mu_field)
+			hf.create_dataset('sg_Cluster', chunks=True,data=sg_syn)
+			hf.create_dataset('sg_Field',   chunks=True,data=sg_field)
+			hf.create_dataset('idx_Field',  chunks=True,data=idx_fld)
+			hf.create_dataset('idx_Cluster',chunks=True,data=idx_cls)
 		#---------------------------------------------------------
 		print("Data correctly assembled")
 
-	def infer_models(self,list_components=range(1,10),case="Field",instance="Real"):
+	def infer_models(self,case="Field",instance="Real"):
+
+		#---------- Libraries ------------------
+		self._initialize_mcmichael()
+		from GPU.gmm import GaussianMixture
+		#---------------------------------------
 
 		file_data = self.file_data_base.format(instance)
 
 		#------------ Read data------------------
 		print("Reading data ...")
 		with h5py.File(file_data, 'r') as hf:
-			X = np.array(hf.get(case))
+			X = np.array(hf.get("mu_"+case))
+			U = np.array(hf.get("sg_"+case))
 		#----------------------------------------
 
 		#-- Dimensions --
-		N,D = X.shape
+		N,_ = X.shape
 		#----------------
 
 		#-------------------- Loop over models ----------------------------------
-		for n_components in list_components:
+		for n_components in self.nc_case[case]:
 			file_model = self.file_model_base.format(instance,case,n_components)
 
 			if os.path.isfile(file_model):
@@ -277,9 +278,9 @@ class Mecayotl(object):
 
 			#------------ Inference ---------------------------------------------
 			print("Inferring model with {0} components.".format(n_components))
-			gmm = GaussianMixture(dimension=D,n_components=n_components)
-			gmm.setup(X,uncertainty=None)
-			gmm.fit(random_state=2)
+			gmm = GaussianMixture(dimension=6,n_components=n_components)
+			gmm.setup(X,uncertainty=U)
+			gmm.fit(random_state=self.random_state)
 			#--------------------------------------------------------------------
 
 			#------- Write --------------------------------
@@ -295,7 +296,8 @@ class Mecayotl(object):
 			print("------------------------------------------")
 
 
-	def plot_criteria(self,list_components=range(1,10),case="Field",instance="Real"):
+	def select_best_model(self,case="Field",instance="Real",
+							minimum_nmin=100):
 
 		file_comparison = self.file_comparison.format(instance,case)
 
@@ -304,7 +306,7 @@ class Mecayotl(object):
 		nmin = []
 
 		#--------------- Read models ---------------------------
-		for n_components in list_components:
+		for n_components in self.nc_case[case]:
 			file_model = self.file_model_base.format(instance,case,n_components)
 			#--------- Read -------------------------------------------
 			with h5py.File(file_model, 'r') as hf:
@@ -318,30 +320,52 @@ class Mecayotl(object):
 		bics = np.array(bics)
 		nmin = np.array(nmin)
 		#---------------------
+
+		#------ Find best ---------------------------------
+		idx_valid = np.where(nmin > minimum_nmin)[0]
+		idx_min   = np.argmin(aics[idx_valid])
+		idx_best  = idx_valid[idx_min]
+		#--------------------------------------------------
+
+		#------------ Set best model ------------------------------------------
+		if instance in self.best_gmm.keys():
+			self.best_gmm[instance].update({case:self.nc_case[case][idx_best]})
+		else:
+			self.best_gmm.update({instance:{case:self.nc_case[case][idx_best]}})
+		#-----------------------------------------------------------------------
 		
 		#-----------Plot BIC,AIC,NMIN ------------------------
 		plt.figure(figsize=(8,6))
 		axl = plt.gca()
-		axl.plot(list_components,bics,label="BIC")
-		axl.plot(list_components,aics,label="AIC")
+		axl.plot(self.nc_case[case],bics,label="BIC")
+		axl.plot(self.nc_case[case],aics,label="AIC")
 		axl.set_xlabel('Components')
 		axl.set_ylabel("Criterion")
-		axl.set_xticks(list_components)
+		axl.set_xticks(self.nc_case[case])
 		axl.legend(loc="upper left")
 
 		axr = axl.twinx()
-		axr.plot(list_components,nmin,
+		axr.plot(self.nc_case[case],nmin,
 				ls="--",color="black",label="$N_{min}$")
 		axr.set_yscale("log")
 		axr.set_ylabel("N_stars in lightest components")
 		axr.legend(loc="upper right")
+
+		axr.axvline(x=self.nc_case[case][idx_best],
+						linewidth=1, color='gray',ls=":")
 
 		plt.savefig(file_comparison,bbox_inches='tight')
 		plt.close()
 		#-----------------------------------------------------
 
 
-	def plot_model(self,n_components,case="Field",instance="Real"):
+	def plot_model(self,n_components=None,case="Field",instance="Real"):
+		#--------------- n_components ----------------------------------------
+		if n_components is None:
+			n_components = self.best_gmm[instance][case]
+		assert isinstance(n_components,int), "n_components must be an integer!"
+		#----------------------------------------------------------------------
+
 		file_data  = self.file_data_base.format(instance)
 		file_model = self.file_model_base.format(instance,case,n_components)
 		#--------- Read model -----------------------------
@@ -354,7 +378,7 @@ class Mecayotl(object):
 
 		#------------ Read data --------------------
 		with h5py.File(file_data, 'r') as hf:
-			X = np.array(hf.get(case))
+			X = np.array(hf.get("mu_"+case))
 		#--------------------------------------
 
 		#--------------------------------------------------------
@@ -396,8 +420,8 @@ class Mecayotl(object):
 			#--------------------------------------------------------------
 
 			#------------- Titles --------------------
-			ax.set_xlabel(self.labels_obs[idx[0]])
-			ax.set_ylabel(self.labels_obs[idx[1]])
+			ax.set_xlabel(self.OBS[idx[0]])
+			ax.set_ylabel(self.OBS[idx[1]])
 			ax.locator_params(tight=True, nbins=3)
 			#----------------------------------------
 
@@ -439,8 +463,8 @@ class Mecayotl(object):
 			#--------------------------------------------------------------
 
 			#------------- Titles --------------------
-			ax.set_xlabel(self.labels_obs[idx[0]])
-			ax.set_ylabel(self.labels_obs[idx[1]])
+			ax.set_xlabel(self.OBS[idx[0]])
+			ax.set_ylabel(self.OBS[idx[1]])
 			ax.locator_params(tight=True, nbins=3)
 			#----------------------------------------
 
@@ -457,7 +481,12 @@ class Mecayotl(object):
 		plt.close()
 		pdf.close()
 			
-	def compute_probabilities(self,best,instance="Real"):
+	def compute_probabilities(self,instance="Real"):
+
+		#---------- Libraries ------------------
+		self._initialize_mcmichael()
+		from GPU.gmm import GaussianMixture
+		#---------------------------------------
 
 		file_data  = self.file_data_base.format(instance)
 		file_hdf   = self.file_hdf_base.format(instance)
@@ -479,13 +508,14 @@ class Mecayotl(object):
 		print("Computing likelihoods ...")
 		llk = {}
 		for case in ["Field","Cluster"]:
-			#--------------- File --------------------
+			n_components = self.best_gmm[instance][case]
+			#--------------- File --------------------------
 			file_model = self.file_model_base.format(
-				instance,case,best[case])
-			#-----------------------------------------
+				instance,case,n_components)
+			#------------------------------------------------
 
 			#------------ Read model -------------------
-			print("Reading parameters ...")
+			print("Reading {0} parameters ...".format(case))
 			with h5py.File(file_model, 'r') as hf:
 				n_components = np.array(hf.get("G"))
 				weights      = np.array(hf.get("pros"))
@@ -494,63 +524,299 @@ class Mecayotl(object):
 			#-------------------------------------------
 
 			#------------ Inference ------------------------------------
-			gmm = GaussianMixture(dimension=6,n_components=best[case])
+			gmm = GaussianMixture(dimension=6,n_components=n_components)
 			gmm.setup(mu,uncertainty=sg)
 			gllks = gmm.log_likelihoods(weights,means,covariances)
 			#-----------------------------------------------------------
 
-			llk[case+"_llk"] = logsumexp(gllks,axis=1,keepdims=True)		
-
-		#---- Creates dataframe --------
-		df = pd.DataFrame(data=llk)
-		#--------------------------
+			#---------- Total likelihood -----------------------------
+			llk[case+"_llk"] = logsumexp(gllks,axis=1,keepdims=False)
+			#---------------------------------------------------------
 
 		#------- Probability --------------------------------------
 		print("Computing probabilities ...")
-		df["prob_cls"] = df.apply(lambda x: np.exp(x["Cluster_llk"])/\
-									(np.exp(x["Field_llk"]) + 
-						 			 np.exp(x["Cluster_llk"])),axis=1)
+		llk["prob_cls"] = np.exp(llk["Cluster_llk"])/\
+			(np.exp(llk["Field_llk"]) + np.exp(llk["Cluster_llk"]))
 		#----------------------------------------------------------
 
-		#---------- Replace ----------------------------
-		print("Saving data ...")
-		df.to_hdf(file_hdf,key="probabilities",mode="a")
+		#---------- Append probability -------------------
+		df_cat = pd.read_hdf(file_hdf,key="catalogue",mode="r")
+		df_cat["prob_cls"] = llk["prob_cls"]
 		#-----------------------------------------------
 
-	def find_probability_threshold(self,bins = 5,covariate = "g",metric = "MCC"):
-		#=========== Evaluate Classifier =============================
-		file_data = [file_cls_data.format(s) for s in random_seeds]
-		clq = ClassifierQuality(file_data=file_data,
-								variate=variate,
-								covariate=covariate,
-								true_class=true_class)
-		clq.confusion_matrix(bins=bins,metric=metric)
-		clq.plots(file_plot=file_qua_plot.format(covariate,metric))
-		clq.save(file_tex=file_qua_tex.format(covariate,metric))
-		#=============================================================
+		print("Updating catalogue ...")
+		df_cat.to_hdf(file_hdf,key="catalogue",format="table",mode="w")
+		del df_cat
 
-	def plot_members(self):
+	def generate_synthetic(self,file_field,file_kalkayotl,
+							photometric_args,
+							n_members=1000,
+							n_field=100000,
+							seeds=range(1),m_factor=2):
+
+		#-------- Libraries --------
+		self._initialize_amasijo()
+		from Amasijo import Amasijo
+		#---------------------------
+
+		#================= Generate syntehtic data ====================
+		for seed in seeds:
+			#--------- Directory ---------------------------------
+			name_base = "/Synthetic_{0}/".format(seed)
+			dir_sim   = self.path_main + name_base
+			file_smp  = self.file_smp_base.format(name_base)
+			file_data = self.file_data_base.format(name_base)
+			file_hdf  = self.file_hdf_base.format(name_base)
+			#----------------------------------------------------
+
+			#--- Create simulation directory -----------
+			os.makedirs(dir_sim,exist_ok=True)
+			os.makedirs(dir_sim + "Data",exist_ok=True)
+			os.makedirs(dir_sim + "Models",exist_ok=True)
+			#-------------------------------------------
+
+			# #---------- Generate cluster ---------------------------
+			ama = Amasijo(photometric_args=photometric_args,
+						  kalkayotl_file=file_kalkayotl,
+						  seed=seed)
+
+			ama.generate_cluster(file_smp,n_stars=n_members,
+								m_factor=m_factor)
+
+			ama.plot_cluster(file_plot=file_smp.replace(".csv",".pdf"))
+			#----------------------------------------------------------
+
+			#-------- Read cluster and field ---------------
+			print("Reading field and cluster data ...")
+			df_cls = pd.read_csv(file_smp)
+			fld    = Table.read(file_field, format='fits')
+			df_fld = fld.to_pandas().sample(n=n_field,
+										random_state=seed)
+			#-----------------------------------------------
+
+			#------ Rename field radial_velocity -----------------
+			df_fld.rename(columns={"radial_velocity":self.OBS[-1],
+						   "radial_velocity_error":self.UNC[-1]},
+						   inplace=True)
+			#-----------------------------------------------------
+
+			#------ Class -----------
+			df_cls["Cluster"] = True
+			df_fld["Cluster"] = False
+			#-------------------------
+
+			#------ Concatenate ------------------------------
+			df = pd.concat([df_cls,df_fld],ignore_index=True)
+			#------------------------------------------------
+
+			#------ Extract -----------------------
+			mu_data = df.loc[:,self.OBS].to_numpy()
+			sd_data = df.loc[:,self.UNC].to_numpy()
+			#--------------------------------------
+
+			#----- Select members and field -------
+			idx_cls  = np.where( df["Cluster"])[0]
+			idx_fld  = np.where(~df["Cluster"])[0]
+			#--------------------------------------
+
+			#-------- Write & delete ------------------------
+			df.to_hdf(file_hdf,key="catalogue",mode="w")
+			del df # Release memory
+			#----------------------------------------------
+
+			#----------- Covariance matrices ------------------
+			print("Filling covariance matrices ...")
+
+			#-------- sd to diag ------------------
+			zeros = np.zeros((len(sd_data),6,6))
+			diag = np.einsum('...jj->...j',zeros)
+			diag[:] = np.square(sd_data)
+			sg_data = zeros.copy()
+			del diag
+			del zeros
+			#--------------------------------------
+
+			#--------------- Write data ------------------------------------
+			with h5py.File(file_data, 'w') as hf:
+				hf.create_dataset('mu',         chunks=True,data=mu_data)
+				hf.create_dataset('sg',         chunks=True,data=sg_data)
+				hf.create_dataset('mu_Cluster', chunks=True,data=mu_data[idx_cls])
+				hf.create_dataset('mu_Field',   chunks=True,data=mu_data[idx_fld])
+				hf.create_dataset('sg_Cluster', chunks=True,data=sg_data[idx_cls])
+				hf.create_dataset('sg_Field',   chunks=True,data=sg_data[idx_fld])
+				hf.create_dataset('idx_Field',  chunks=True,data=idx_fld)
+				hf.create_dataset('idx_Cluster',chunks=True,data=idx_cls)
+			#----------------------------------------------------------------
+			print("Data correctly written")
+			del mu_data
+			del sg_data
+			del sd_data
+
+	def compute_probabilities_synthetic(self,seeds):
+
+		for i,seed in enumerate(seeds):
+			#------------ File and direcotry ----------------------------
+			instance  = "Synthetic_{0}".format(seed)
+			dir_model = "{0}/{1}/Models/".format(self.path_main,instance)
+			file_hdf  = self.file_hdf_base.format(instance)
+			os.makedirs(dir_model,exist_ok=True)
+			#-------------------------------------------------------------
+			print("Analyzing {0} data ...".format(instance))
+
+			if i == 0:
+				#---------- Infer field model --------------------------
+				self.infer_models(case="Field",instance=instance)
+				self.select_best_model(case="Field",instance=instance)
+				self.plot_model(case="Field",instance=instance)
+				#-------------------------------------------------------
+
+				#-------- Best cluster same as Real data ---------------
+				self.best_gmm[instance].update({"Cluster":
+									self.best_gmm["Real"]["Cluster"]})
+				#-------------------------------------------------------
+
+			else:
+				#---------------- Copy field models ------------------------
+				model_fld = self.file_model_base.format(
+					"Synthetic_{0}".format(seeds[0]),"Field",
+					self.best_gmm["Synthetic_{0}".format(seeds[0])]["Field"])
+				cmd_fld   = "cp {0} {1}".format(model_fld,dir_model)
+				os.system(cmd_fld)
+				#-----------------------------------------------------
+
+				#-------- Best gmm same as seed_0 ---------------
+				self.best_gmm[instance] = self.best_gmm[
+								"Synthetic_{0}".format(seeds[0])]
+				#-------------------------------------------------------
+			#---------------------------------------------------------------
+
+			#------------ Cluster model ------------------------------
+			model_cls = self.file_model_base.format("Real","Cluster",
+							self.best_gmm["Real"]["Cluster"])
+			cmd_cls   = "cp {0} {1}".format(model_cls,dir_model)
+			os.system(cmd_cls)
+			#---------------------------------------------------------
+
+			#----- Compute probabilities -----------------
+			self.compute_probabilities(instance=instance)
+			#---------------------------------------------
+
+	def find_probability_threshold(self,seeds,bins=4,covariate="g",metric="ACC"):
+		#-------- Libraries -------------------
+		self._initialize_amasijo()
+		from Quality import ClassifierQuality
+		#--------------------------------------
+
+		os.makedirs(self.path_main+"/Classification/")
+
+		dfs = []
+		for seed in seeds:
+			#------------ File ----------------------------
+			instance  = "Synthetic_{0}".format(seed)
+			file_hdf  = self.file_hdf_base.format(instance)
+			
+			#------------- Reading -------------------------------
+			print("Reading catalogue and probabilities ...")
+			df = pd.read_hdf(file_hdf,key="catalogue",
+					columns=["Cluster","prob_cls",covariate])
+			#-----------------------------------------------------
+
+			#-- Append ----
+			dfs.append(df)
+			#--------------
+
+		print("Analyzing classifier quality ...")
+		clq = ClassifierQuality(file_data=dfs,
+								variate="prob_cls",
+								covariate=covariate,
+								true_class="Cluster")
+		clq.confusion_matrix(bins=bins,metric=metric,prob_steps=100)
+		clq.plots(file_plot=self.file_qlt_base.format(covariate,metric,"pdf"))
+		clq.save(file_tex=self.file_qlt_base.format(covariate,metric,"tex"))
+
+		self.file_thresholds = self.file_qlt_base.format(
+											covariate,metric,"pkl")
+
+	def plot_members(self,probability_threshold=None,instance="Real"):
+
+		file_hdf  = self.file_hdf_base.format(instance)
+
 		#------------- Reading -------------------------------
-		print("Reading catalogue and probabilities ...")
+		print("Reading catalogue ...")
 		df_cat = pd.read_hdf(file_hdf,key="catalogue")
-		df_pro = pd.read_hdf(file_hdf,key="probabilities")
 		#-----------------------------------------------------
+
+		#----- Members ------------------------------
+		df_mem  = df_cat.loc[df_cat["Member"]].copy()
+		#--------------------------------------------
 
 		#----- Candidates --------------------------------
 		print("Selecting candidates ...")
-		mask_cnd = df_pro["prob_cls"] >= probability_threshold
-		df_cnd = df_cat.loc[mask_cnd].copy()
-		df_cnd = df_cnd.merge(df_pro,left_index=True,
-									right_index=True)
-		ids_cnd = df_cnd["source_id"].to_numpy()
+		if isinstance(probability_threshold,float):
+			mask_cnd = df_cat["prob_cls"] >= probability_threshold
+			df_cnd   = df_cat.loc[mask_cnd].copy()
+			del df_cat
+
+		else:
+			#------------- File tresholds -----------------------------------
+			file_thresholds = self.file_thresholds if probability_threshold \
+						is None else probability_threshold
+			#----------------------------------------------------------------
+
+			#----- Load edges and probability thresholds ------
+			with open(file_thresholds,'rb') as in_stream: 
+				quality = dill.load(in_stream)
+			#--------------------------------------------------
+
+			#------- Split data frame into bins ---------------------
+			bin_mag = np.digitize(df_cat[quality["covariate"]].values,
+						bins=quality["edges"])
+			#--------------------------------------------------------
+
+			#------ Bin 0 objects to bin 1----------------
+			# Few objects are brighter than the brightest edge so 
+			# we use the same probability as the first bin
+			bin_mag[np.where(bin_mag == 0)[0]] = 1
+			#-------------------------------------
+
+			#----------- Loop over bins ----------------------------
+			dfs = []
+			for i,threshold in enumerate(quality["thresholds"]):
+				#--------- Objects in bin -----------------------
+				idx = np.where(bin_mag == i)[0]
+				strategy = "Bin {0}".format(i)
+				# There are no objects in bin zero
+				# so we use it for all objects
+				if i == 0: 
+					assert len(idx) == 0 ,"Bin 0 is not empty!"
+					idx = np.arange(len(df_cat))
+					strategy = "All"
+				#------------------------------------------------
+
+				#----------- Temporal DF ---------
+				tmp = df_cat.iloc[idx].copy()
+				#----------------------------------
+
+				#------------- Members ----------------------------
+				tmp_mem = tmp[tmp["prob_cls"] >= threshold].copy()
+				tmp_mem["Strategy"] = strategy
+				#-------------------------------------------------
+
+				#------------ Append -------------------------------------------
+				dfs.append(tmp_mem)
+				#---------------------------------------------------------------
+
+			#--------- Concatenate and extract -----
+			df = pd.concat(dfs)
+			df_cnd = df[df["Strategy"] != "All"].copy()
+			del df_cat
+			#-------------------------------------------
 		#-------------------------------------------------
 
-		#----- Members ------------------------------
-		df_mem = df_cat.loc[df_cat["Member"]].copy()
-		df_mem = df_mem.merge(df_pro,left_index=True,
-									right_index=True)
+		#---------- IDs ------------------------
+		ids_cnd = df_cnd["source_id"].to_numpy()
 		ids_mem = df_mem["source_id"].to_numpy()
-		#--------------------------------------------
+		#---------------------------------------
 
 		#-------- Summary----------------------------
 		ids_common = np.intersect1d(ids_mem,ids_cnd)
@@ -567,23 +833,23 @@ class Mecayotl(object):
 		#---------------------------------------------
 
 		#--------------------------------------------------------
-		pdf = PdfPages(filename=file_plt)
-		for plot in plots:
+		pdf = PdfPages(filename=self.file_mem_plot)
+		for i,plot in enumerate(self.plots):
 			fig = plt.figure()
 			ax  = plt.gca()
 			#--------- Sources --------------------------
 			ax.scatter(x=df_mem[plot[0]],y=df_mem[plot[1]],
-						marker="s",s=5,
+						marker=".",s=5,
 						c=df_mem["prob_cls"],
 						vmin=0,vmax=1,
-						cmap=cmap_prob,
+						cmap=self.cmap_prob,
 						zorder=0,
 						label="Members")
 			scb = ax.scatter(x=df_cnd[plot[0]],y=df_cnd[plot[1]],
-						marker=".",s=3,
-						c=df_cnd["prob_cls"],
+						marker="$\u25A1$",
+						s=10,c=df_cnd["prob_cls"],
 						vmin=0,vmax=1,
-						cmap=cmap_prob,
+						cmap=self.cmap_prob,
 						zorder=0,
 						label="Candidates")
 			#-------------------------------------------
@@ -592,113 +858,41 @@ class Mecayotl(object):
 			ax.set_xlabel(plot[0])
 			ax.set_ylabel(plot[1])
 			ax.locator_params(tight=True, nbins=3)
-			#----------------------------------------]
+			#----------------------------------------
+
+			#------- Invert ----------
+			if i==3:
+				ax.invert_yaxis()
+			#-----------------------
 
 			ax.legend()
 			fig.colorbar(scb,shrink=0.75,extend="both",label='Probability')
 			pdf.savefig(dpi=100,bbox_inches='tight')
 			plt.close()
 		pdf.close()
+		#-------------------------------------------------------------------
 
-	def generate_synthetic(self,seeds):
-		#================= Generate syntehtic data ====================
-		for seed in seeds:
-			#------------ Create simulation directory ------
-			os.makedirs(self.dir_simulations.format(seed),exist_ok=True)
-			#------------------------------------------------
-
-			#---------- Generate cluster ---------------------------
-			ama = Amasijo(photometric_args=photometric_args,
-						  kalkayotl_file=self.file_kalkayotl,
-						  seed=seed)
-
-			ama.generate_cluster(file_cls_data.format(seed),
-								n_stars=n_members,
-								m_factor=m_factor)
-
-			ama.plot_cluster(file_plot=file_cls_plot.format(seed))
-			#-------------------------------------------------------
-
-			#-------- Read cluster and field ---------------
-			df_cls = pd.read_csv(file_cls_data.format(seed))
-			fld = Table.read(file_field, format='fits')
-			df_fld = fld.to_pandas()
-			#-----------------------------------------------
-
-			#------ Class -----------
-			df_cls[class_name] = True
-			df_fld[class_name] = False
-			#-------------------------
-
-			#------ Concatenate ------------------------------
-			df = pd.concat([df_cls,df_fld],ignore_index=True)
-			#------------------------------------------------
-
-			#------ Extract ----------------------
-			mu_data = df.loc[:,OBS].to_numpy()
-			sd_data = df.loc[:,UNC].to_numpy()
-			#------------------------------------
-
-			#----- Select members and field ----------
-			idx_cls  = np.where(df[class_name])[0]
-			idx_fld  = np.where(~df[class_name])[0]
-			#-----------------------------------------
-
-			# print("Writting catalogue ...")
-			# df.to_hdf(file_cat_data.format(seed),
-			# 			key="catalogue",mode="w")
-			del df # Release memory
-
-			#----------- Covariance matrices ------------------
-			print("Filling covariance matrices ...")
-
-			#-------- sd to diag ------------------
-			zeros = np.zeros((len(sd_data),6,6))
-			diag = np.einsum('...jj->...j',zeros)
-			diag[:] = np.square(sd_data)
-			sg_data = zeros.copy()
-			del diag
-			del zeros
-			#--------------------------------------
-			
-			#---------- Random sample of field sources ------------------
-			idx_rnd  = np.random.choice(idx_fld,size=n_field,replace=False)
-			mu_field = mu_data[idx_rnd]
-			#------------------------------------------------------------
-			
-			#------------- Write --------------------------------
-			print("Writting data ...")
-			with h5py.File(file_syn_data.format(seed), 'w') as hf:
-				hf.create_dataset('mu', chunks=True,data=mu_data)
-				hf.create_dataset('sg', chunks=True,data=sg_data)
-				hf.create_dataset('mu_field',   chunks=True,data=mu_field)
-				hf.create_dataset('idx_field',  chunks=True,data=idx_fld)
-				hf.create_dataset('idx_cluster',chunks=True,data=idx_cls)
-			#----------------------------------------------------
-			print("Data correctly written")
-			del mu_field
-			del mu_data
-			del sg_data
-			del sd_data
-		#=================================================================
+		#--------- Save candidates -------
+		df_cnd.to_csv(self.file_mem_data,index=False)
+		#=============================================================
 
 
 if __name__ == "__main__":
-	#----------------- Directories -----------
-	dir_repos= "/home/jolivares/Repos/"
-	dir_main = "/home/jolivares/Cumulos/ComaBer/Mecayotl/"
-	#-----------------------------------------
+	#----------------- Directories ------------------------
+	dir_repos= "/scratch/jolivares/Repos/"
+	dir_main = "/scratch/jolivares/OCs/ComaBer/Mecayotl/"
+	dir_cats = "/scratch/jolivares/OCs/ComaBer/Catalogues/"
+	#-------------------------------------------------------
 
 	#----------- Files --------------------------------------------
 	file_kalkayotl = dir_main + "Real/Data/Cluster_statistics.csv"
-	file_catalogue = dir_main + "Real/Data/ComaBer.fits"
 	file_members   = dir_main + "Real/Data/members_Furnkranz+2019.csv"
-	file_syn_cat   = dir_main + "Real/Data/ComaBer_33deg_simulation-result.fits"
+	file_new_mem   = dir_main + "Real/Data/members_mecayotl.csv"
+	file_rel_cat   = dir_cats + "ComaBer_33deg.fits"
+	file_syn_cat   = dir_cats + "ComaBer_33deg_simulation.fits"
 	#--------------------------------------------------------------
 
 	#----- Miscellaneous ------------------------------------------------
-	n_syn = 1000
-	probability_threshold = 0.95
 	seeds = range(10)
 	photometric_args = {
 		"log_age": np.log10(8.0e8),    
@@ -707,22 +901,43 @@ if __name__ == "__main__":
 		"mass_limit":10.0, 
 		"bands":["V","I","G","BP","RP"]
 	}
-	m_factor = 2
-	#------------------------------------
+	bins = [4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0,16.0]
 	#---------------------------------------------------------------------
 	
 
-	mcy = Mecayotl(path_main=dir_main,
+	mcy = Mecayotl(nc_cluster=range(1,11,1),
+				   nc_field=range(1,15,1),
+				   path_main=dir_main,
 				   path_amasijo=dir_repos+"Amasijo/",
 				   path_mcmichael=dir_repos+"McMichael/")
 
-	#----------- Real data analysis ------------------------------------
+	#----------- Real data analysis ------------------------------------------
 	# mcy.generate_true_cluster(file_kalkayotl=file_kalkayotl)
-	# mcy.assemble_data(file_catalogue=file_catalogue,file_members=file_members,
-	# 				  instance="Real")
-	# mcy.plot_criteria(list_components=range(10,16,1),case="Field",instance="Real")
-	# mcy.plot_criteria(list_components=range(1,11,1),case="Cluster",instance="Real")
-	# mcy.plot_model(n_components=14,case="Field",instance="Real")
-	# mcy.plot_model(n_components=5,case="Cluster",instance="Real")
-	mcy.compute_probabilities(best={"Field":14,"Cluster":5},instance="Real")
+	# mcy.assemble_data(file_catalogue=file_rel_cat,file_members=file_members,
+	# 														instance="Real")
+	# mcy.infer_models(case="Field",instance="Real")
+	# mcy.infer_models(case="Cluster",instance="Real")
+	# mcy.select_best_model(case="Field",instance="Real")
+	# mcy.select_best_model(case="Cluster",instance="Real")
+	# mcy.plot_model(case="Field",instance="Real")
+	# mcy.plot_model(case="Cluster",instance="Real")
+	# mcy.best_gmm = {'Real': {'Field': 11, 'Cluster': 10}}
+	# mcy.compute_probabilities(instance="Real")
+	#-------------------------------------------------------------------------
+
+	#----------- Synthetic data --------------------------------
+	mcy.generate_synthetic(file_field=file_syn_cat,
+						   file_kalkayotl=file_kalkayotl,
+						   photometric_args=photometric_args,
+						   n_field=int(1e6),
+						   seeds=seeds)
+	mcy.compute_probabilities_synthetic(seeds)
+	#----------------------------------------------------------
+	
+	mcy.find_probability_threshold(seeds=seeds,bins=bins)
+	mcy.plot_members(instance="Real")
+	#----------------------------------------------------------------------------
+
+	
+
 
