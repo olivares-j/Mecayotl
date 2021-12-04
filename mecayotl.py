@@ -707,7 +707,7 @@ class Mecayotl(object):
 		from Quality import ClassifierQuality
 		#--------------------------------------
 
-		os.makedirs(self.path_main+"/Classification/")
+		os.makedirs(self.path_main+"/Classification/",exist_ok=True)
 
 		dfs = []
 		for seed in seeds:
@@ -857,7 +857,12 @@ class Mecayotl(object):
 			#------------- Titles --------------------
 			ax.set_xlabel(plot[0])
 			ax.set_ylabel(plot[1])
-			ax.locator_params(tight=True, nbins=3)
+			#-----------------------------------------
+			# ax.yaxis.set_major_locator(MultipleLocator(10))
+			# ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
+			# # For the minor ticks, use no labels; default NullFormatter.
+			# ax.yaxis.set_minor_locator(MultipleLocator(5))
+			ax.locator_params(tight=True, nbins=10)
 			#----------------------------------------
 
 			#------- Invert ----------
@@ -898,10 +903,9 @@ if __name__ == "__main__":
 		"log_age": np.log10(8.0e8),    
 		"metallicity":0.012,
 		"Av": 0.0,         
-		"mass_limit":10.0, 
+		"mass_limit":50.0, 
 		"bands":["V","I","G","BP","RP"]
 	}
-	bins = [4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0,16.0]
 	#---------------------------------------------------------------------
 	
 
@@ -926,15 +930,15 @@ if __name__ == "__main__":
 	#-------------------------------------------------------------------------
 
 	#----------- Synthetic data --------------------------------
-	mcy.generate_synthetic(file_field=file_syn_cat,
-						   file_kalkayotl=file_kalkayotl,
-						   photometric_args=photometric_args,
-						   n_field=int(1e6),
-						   seeds=seeds)
-	mcy.compute_probabilities_synthetic(seeds)
+	# mcy.generate_synthetic(file_field=file_syn_cat,
+	# 					   file_kalkayotl=file_kalkayotl,
+	# 					   photometric_args=photometric_args,
+	# 					   n_field=int(1e6),
+	# 					   seeds=seeds)
+	# mcy.compute_probabilities_synthetic(seeds)
 	#----------------------------------------------------------
 	
-	mcy.find_probability_threshold(seeds=seeds,bins=bins)
+	mcy.find_probability_threshold(seeds=seeds,bins=5)
 	mcy.plot_members(instance="Real")
 	#----------------------------------------------------------------------------
 
