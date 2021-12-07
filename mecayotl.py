@@ -45,9 +45,9 @@ class Mecayotl(object):
 	https://gdn.iib.unam.mx/termino/search?queryCreiterio=mecayotl&queryPartePalabra=cualquiera&queryBuscarEn=nahuatl&queryLimiteRegistros=50 
 	"""
 
-	def __init__(self,path_main,
-					nc_cluster=range(1,10),
-					nc_field=range(1,10),
+	def __init__(self,file_kalkayotl,path_main,
+					nc_cluster=range(1,21),
+					nc_field=range(1,21),
 					path_mcmichael = "/home/jolivares/Repos/McMichael/",
 					path_amasijo   = "/home/jolivares/Repos/Amasijo/",
 					cmap_probability="viridis_r",
@@ -74,6 +74,7 @@ class Mecayotl(object):
 		#--------------------------------------
 
 		#---------------- Files --------------------------------------------------
+		self.file_kalkayotl  = file_kalkayotl
 		self.file_smp_base   = path_main + "/{0}/Data/members_synthetic.csv"
 		self.file_hdf_base   = path_main + "/{0}/Data/catalogue.h5"
 		self.file_data_base  = path_main + "/{0}/Data/data.h5"
@@ -95,6 +96,12 @@ class Mecayotl(object):
 		self.nc_case   = {"Field":nc_field,"Cluster":nc_cluster}
 		self.best_gmm  = {}
 		#----------------------------------------------------------------------------------
+
+		#----- Creal real data direcotries -----
+		os.makedirs(path_main + "/Real",exist_ok=True)
+		os.makedirs(path_main + "/Real/Data",exist_ok=True)
+		os.makedirs(path_main + "/Real/Models",exist_ok=True)
+		#-------------------------------------------
 
 	def _initialize_mcmichael(self):
 		#-------------- Commands to replace dimension -----------------------------
@@ -548,11 +555,12 @@ class Mecayotl(object):
 		df_cat.to_hdf(file_hdf,key="catalogue",format="table",mode="w")
 		del df_cat
 
-	def generate_synthetic(self,file_field,file_kalkayotl,
+	def generate_synthetic(self,file_catalogue,
 							photometric_args,
 							n_members=1000,
 							n_field=100000,
-							seeds=range(1),m_factor=2):
+							seeds=range(1),
+							m_factor=2):
 
 		#-------- Libraries --------
 		self._initialize_amasijo()
@@ -577,7 +585,7 @@ class Mecayotl(object):
 
 			# #---------- Generate cluster ---------------------------
 			ama = Amasijo(photometric_args=photometric_args,
-						  kalkayotl_file=file_kalkayotl,
+						  kalkayotl_file=self.file_kalkayotl,
 						  seed=seed)
 
 			ama.generate_cluster(file_smp,n_stars=n_members,
@@ -589,7 +597,7 @@ class Mecayotl(object):
 			#-------- Read cluster and field ---------------
 			print("Reading field and cluster data ...")
 			df_cls = pd.read_csv(file_smp)
-			fld    = Table.read(file_field, format='fits')
+			fld    = Table.read(file_catalogue, format='fits')
 			df_fld = fld.to_pandas().sample(n=n_field,
 										random_state=seed)
 			#-----------------------------------------------
@@ -881,6 +889,35 @@ class Mecayotl(object):
 		df_cnd.to_csv(self.file_mem_data,index=False)
 		#=============================================================
 
+	def run_real(self,file_catalogue,file_members,n_samples=100000):
+
+		#-----------------------------------------------------
+		self.generate_true_cluster(file_kalkayotl=self.file_kalkayotl,
+								   n_samples=n_samples)
+		self.assemble_data(file_catalogue=file_catalogue,
+						  file_members=file_members,
+							instance="Real")
+		self.infer_models(case="Field",instance="Real")
+		self.infer_models(case="Cluster",instance="Real")
+		self.select_best_model(case="Field",instance="Real")
+		self.select_best_model(case="Cluster",instance="Real")
+		print("The best GMM models are:")
+		print(self.best_gmm)
+		self.plot_model(case="Field",instance="Real")
+		self.plot_model(case="Cluster",instance="Real")
+		self.compute_probabilities(instance="Real")
+		#-------------------------------------------------------------------------
+
+	def run_synthetic(self,seeds,file_catalogue,photometric_args,n_field=int(1e5)):
+		#----------- Synthetic data --------------------------------
+		self.generate_synthetic(file_catalogue=file_catalogue,
+							   photometric_args=photometric_args,
+							   n_field=n_field,
+							   seeds=seeds)
+		self.compute_probabilities_synthetic(seeds)
+		#----------------------------------------------------------
+
+
 
 if __name__ == "__main__":
 	#----------------- Directories ------------------------
@@ -909,34 +946,18 @@ if __name__ == "__main__":
 	#---------------------------------------------------------------------
 	
 
-	mcy = Mecayotl(nc_cluster=range(1,11,1),
-				   nc_field=range(1,15,1),
+	mcy = Mecayotl(file_kalkayotl=file_kalkayotl,
 				   path_main=dir_main,
+				   nc_cluster=range(1,11,1),
+				   nc_field=range(1,15,1),
 				   path_amasijo=dir_repos+"Amasijo/",
 				   path_mcmichael=dir_repos+"McMichael/")
 
-	#----------- Real data analysis ------------------------------------------
-	# mcy.generate_true_cluster(file_kalkayotl=file_kalkayotl)
-	# mcy.assemble_data(file_catalogue=file_rel_cat,file_members=file_members,
-	# 														instance="Real")
-	# mcy.infer_models(case="Field",instance="Real")
-	# mcy.infer_models(case="Cluster",instance="Real")
-	# mcy.select_best_model(case="Field",instance="Real")
-	# mcy.select_best_model(case="Cluster",instance="Real")
-	# mcy.plot_model(case="Field",instance="Real")
-	# mcy.plot_model(case="Cluster",instance="Real")
-	# mcy.best_gmm = {'Real': {'Field': 11, 'Cluster': 10}}
-	# mcy.compute_probabilities(instance="Real")
-	#-------------------------------------------------------------------------
-
-	#----------- Synthetic data --------------------------------
-	# mcy.generate_synthetic(file_field=file_syn_cat,
-	# 					   file_kalkayotl=file_kalkayotl,
-	# 					   photometric_args=photometric_args,
-	# 					   n_field=int(1e6),
-	# 					   seeds=seeds)
-	# mcy.compute_probabilities_synthetic(seeds)
-	#----------------------------------------------------------
+	mcy.run_real(file_catalogue=file_rel_cat,file_members=file_members)
+	print(mcy.best_gmm)
+	mcy.run_synthetic(seeds=seeds,file_catalogue=file_syn_cat,
+					  photometric_args=photometric_args,
+					  n_field=int(1e6))
 	
 	mcy.find_probability_threshold(seeds=seeds,bins=5)
 	mcy.plot_members(instance="Real")
