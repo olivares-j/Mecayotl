@@ -45,13 +45,14 @@ class Mecayotl(object):
 	https://gdn.iib.unam.mx/termino/search?queryCreiterio=mecayotl&queryPartePalabra=cualquiera&queryBuscarEn=nahuatl&queryLimiteRegistros=50 
 	"""
 
-	def __init__(self,file_kalkayotl,path_main,
-					nc_cluster=range(1,21),
-					nc_field=range(1,21),
+	def __init__(self,file_kalkayotl,photometric_args,path_main,
+					nc_cluster=range(2,21),
+					nc_field=range(2,21),
 					path_mcmichael = "/home/jolivares/Repos/McMichael/",
 					path_amasijo   = "/home/jolivares/Repos/Amasijo/",
 					cmap_probability="viridis_r",
 					cmap_features="viridis_r",
+					zero_point=[0.,0.,-0.017,0.,0.,0.],
 					seed=1234):
 
 		gaia_observables = [
@@ -65,6 +66,7 @@ class Mecayotl(object):
 		#------ Set Seed -----------------
 		np.random.seed(seed=seed)
 		self.random_state = np.random.RandomState(seed=seed)
+		self.seed = seed
 		#----------------------------------------------------
 
 		#------------- Directories -----------------
@@ -86,15 +88,20 @@ class Mecayotl(object):
 		#-------------------------------------------------------------------------
 
 		#-------------- Parameters -----------------------------------------------------
+		self.zero_point= np.array(zero_point)
 		self.cmap_prob = plt.get_cmap(cmap_probability)
 		self.cmap_feat = plt.get_cmap(cmap_features)
 		self.idxs      = [[0,1],[2,1],[0,2],[3,4],[5,4],[3,5]]
-		self.plots     = [["ra","dec"],["pmra","pmdec"],["parallax","pmdec"],["g_rp","g"]]
+		self.plots     = [
+						  ["ra","dec"],["pmra","pmdec"],
+						  ["parallax","pmdec"],["g_rp","g"],["g_rp","G"]
+						 ]
 		self.OBS       = gaia_observables[0:6]
 		self.UNC       = gaia_observables[6:12]
 		self.RHO       = gaia_observables[12:]
 		self.nc_case   = {"Field":nc_field,"Cluster":nc_cluster}
 		self.best_gmm  = {}
+		self.photometric_args = photometric_args
 		#----------------------------------------------------------------------------------
 
 		#----- Creal real data direcotries -----
@@ -103,6 +110,10 @@ class Mecayotl(object):
 		os.makedirs(path_main + "/Real/Models",exist_ok=True)
 		#-------------------------------------------
 
+		#----- Initialize Amasijo -------
+		sys.path.append(self.dir_amasijo)
+		#--------------------------------
+
 	def _initialize_mcmichael(self):
 		#-------------- Commands to replace dimension -----------------------------
 		cmd = 'sed -e "s|DIMENSION|{0}|g"'.format(6)
@@ -110,59 +121,39 @@ class Mecayotl(object):
 		os.system(cmd)
 		#--------------------------------------------------------------------------
 		sys.path.append(self.dir_mcmi)
-
-	def _initialize_amasijo(self):
-		sys.path.append(self.dir_amasijo)
-
+		
 	def generate_true_cluster(self,file_kalkayotl,n_samples=100000,instance="Real"):
 		"""
 		Generate synthetic data based on Kalkayotl input parameters
 		"""
+		#-------- Libraries --------
+		from Amasijo import Amasijo
+		#---------------------------
+
 		file_smp  = self.file_smp_base.format(instance)
 
-		param = pd.read_csv(file_kalkayotl,usecols=["Parameter","mode"])
+		#----------- Generate true astrometry ---------------
+		ama = Amasijo(kalkayotl_file=file_kalkayotl,
+					  photometric_args=self.photometric_args,
+					  seed=self.seed)
 
-		#---- Extract parameters ------------------------------------------------
-		loc  = param.loc[param["Parameter"].str.contains("loc"),"mode"].values
-		param.fillna(value=1.0,inplace=True)
-		stds = param.loc[param["Parameter"].str.contains('stds'),"mode"].values
-		corr = param.loc[param["Parameter"].str.contains('corr'),"mode"].values
-		#------------------------------------------------------------------------
+		X = ama._generate_phase_space(n_stars=n_samples)
 
-		#---- Construct covariance --------------
-		stds = np.diag(stds)
-		corr = np.reshape(corr,(6,6))
-		cov  = np.dot(stds,corr.dot(stds))
-		#-----------------------------------------
+		df_as,_ = ama._generate_true_astrometry(X)
+		#----------------------------------------------------
 
-		#--------- Generate synthetic samples ----------------------
-		phase_space = multivariate_normal(mean=loc,cov=cov).rvs(
-						size=n_samples,
-						random_state=self.random_state)
-		astrometry_rv  = np.array(phase_space_to_astrometry(
-						phase_space[:,0],
-						phase_space[:,1],
-						phase_space[:,2],
-						phase_space[:,3],
-						phase_space[:,4],
-						phase_space[:,5]
-						))
-		astrometry_rv[0] = np.rad2deg(astrometry_rv[0])
-		astrometry_rv[1] = np.rad2deg(astrometry_rv[1])
-		#------------------------------------------------------------
+		#----- Rename columns ---------------------------
+		df_as.rename(columns={
+			ama.labels_true_as[0]:"ra",
+			ama.labels_true_as[1]:"dec",
+			ama.labels_true_as[2]:"parallax",
+			ama.labels_true_as[3]:"pmra",
+			ama.labels_true_as[4]:"pmdec",
+			ama.labels_true_as[5]:"dr2_radial_velocity"
+			},inplace=True)
+		#------------------------------------------------
 
-		#---------- Data Frame original -------------------
-		df = pd.DataFrame(data={
-						"ra":astrometry_rv[0],
-						"dec":astrometry_rv[1],
-						"parallax":astrometry_rv[2],
-						"pmra":astrometry_rv[3],
-						"pmdec":astrometry_rv[4],
-						"dr2_radial_velocity":astrometry_rv[5]
-						})
-		df.to_csv(file_smp,index_label="source_id")
-		#---------------------------------------------------
-
+		df_as.to_csv(file_smp,index_label="source_id")
 
 	def assemble_data(self,file_catalogue,file_members,
 						n_fld=100000,instance="Real"):
@@ -172,10 +163,24 @@ class Mecayotl(object):
 		file_smp  = self.file_smp_base.format(instance)
 		#-------------------------------------------------
 
-		#--------------- Read ------------------------------
+		#--------------- Catalogue ---------------------
 		cat = Table.read(file_catalogue, format='fits')
 		df_cat = cat.to_pandas()
-		df_mem = pd.read_csv(file_members,usecols=["source_id"])
+		del cat
+		#-----------------------------------------------
+
+		#--------- Members ------------------------------------------
+		if '.csv' in file_members:
+			df_mem = pd.read_csv(file_members)
+		elif ".fits" in file_members:
+			dat = Table.read(file_members, format='fits')
+			df_mem  = dat.to_pandas()
+			del dat
+		else:
+			sys.exit("Format file not recognized. Only CSV of FITS")
+		#-------------------------------------------------------------
+
+		#----------- Synthetic -----------------------------------
 		df_syn = pd.read_csv(file_smp,usecols=self.OBS)
 		#---------------------------------------------------
 
@@ -187,11 +192,15 @@ class Mecayotl(object):
 		print("Filling covariance matrices ...")
 		sg_data = np.zeros((n_sources,6,6))
 
-		#------ Extract ----------------------
+		#------ Extract ---------------------------
 		mu_data = df_cat.loc[:,self.OBS].to_numpy()
 		stds    = df_cat.loc[:,self.UNC].to_numpy()
 		cr_data = df_cat.loc[:,self.RHO].to_numpy()
-		#-------------------------------------
+		#------------------------------------------
+
+		#---- Substract zero point---------
+		mu_data = mu_data - self.zero_point
+		#----------------------------------
 
 		#----- There is no correlation with r_vel ---
 		idx_tru = np.triu_indices(6,k=1)
@@ -254,6 +263,7 @@ class Mecayotl(object):
 			hf.create_dataset('idx_Field',  chunks=True,data=idx_fld)
 			hf.create_dataset('idx_Cluster',chunks=True,data=idx_cls)
 		#---------------------------------------------------------
+		del df_cat,df_syn,mu_data,sg_data,mu_field,sg_field,mu_syn,sg_syn
 		print("Data correctly assembled")
 
 	def infer_models(self,case="Field",instance="Real"):
@@ -302,9 +312,11 @@ class Mecayotl(object):
 			#------------------------------------------------
 			print("------------------------------------------")
 
+		del X,U
+
 
 	def select_best_model(self,case="Field",instance="Real",
-							minimum_nmin=100):
+							minimum_nmin=100, criterion="BIC"):
 
 		file_comparison = self.file_comparison.format(instance,case)
 
@@ -330,7 +342,12 @@ class Mecayotl(object):
 
 		#------ Find best ---------------------------------
 		idx_valid = np.where(nmin > minimum_nmin)[0]
-		idx_min   = np.argmin(aics[idx_valid])
+		if criterion == "BIC":
+			idx_min   = np.argmin(bics[idx_valid])
+		elif criterion == "AIC":
+			idx_min   = np.argmin(aics[idx_valid])
+		else:
+			sys.exit("Criterion {0} not valid".format(criterion))
 		idx_best  = idx_valid[idx_min]
 		#--------------------------------------------------
 
@@ -411,6 +428,7 @@ class Mecayotl(object):
 			ax.scatter(x=X[:,idx[0]],y=X[:,idx[1]],
 						marker=".",s=1,
 						c="gray",zorder=0,
+						rasterized=True,
 						label="Data")
 			#-------------------------------------------
 
@@ -454,6 +472,7 @@ class Mecayotl(object):
 			ax.scatter(x=X[:,idx[0]],y=X[:,idx[1]],
 						marker=".",s=1,
 						c="gray",zorder=0,
+						rasterized=True,
 						label="Data")
 			#-------------------------------------------
 
@@ -487,8 +506,10 @@ class Mecayotl(object):
 		pdf.savefig(dpi=100,bbox_inches='tight')
 		plt.close()
 		pdf.close()
+
+		del X
 			
-	def compute_probabilities(self,instance="Real"):
+	def compute_probabilities(self,instance="Real",chunks=1):
 
 		#---------- Libraries ------------------
 		self._initialize_mcmichael()
@@ -508,13 +529,29 @@ class Mecayotl(object):
 		#-- Dimensions --
 		N,_ = mu.shape
 		#----------------
+	
+
+		#------- Chunks ----------------------------------------
+		# Compute partitioning of the input array of size N
+		proc_n = [ N // chunks + (N % chunks > n) 
+						for n in range(chunks)]
+		pos = 0
+		pos_n = []
+		for n in range(chunks):
+			pos_n.append(pos)
+			pos += proc_n[n]
+
+		chunk_n    = [proc_n[rank] for rank in range(chunks)]
+		chunk_off  = [pos_n[rank] for rank in range(chunks)]
+		chunk_idx  = [range(chunk_off[c],chunk_off[c]+chunk_n[c])
+						for c in range(chunks)]
+		#-----------------------------------------------------
 
 		self._initialize_mcmichael()
 
 		#----- Likelihoods ----------------------------------
-		print("Computing likelihoods ...")
-		llk = {}
-		for case in ["Field","Cluster"]:
+		llks = np.zeros((N,2))
+		for i,case in enumerate(["Field","Cluster"]):
 			n_components = self.best_gmm[instance][case]
 			#--------------- File --------------------------
 			file_model = self.file_model_base.format(
@@ -531,24 +568,27 @@ class Mecayotl(object):
 			#-------------------------------------------
 
 			#------------ Inference ------------------------------------
+			print("Computing likelihoods ...")
 			gmm = GaussianMixture(dimension=6,n_components=n_components)
-			gmm.setup(mu,uncertainty=sg)
-			gllks = gmm.log_likelihoods(weights,means,covariances)
-			#-----------------------------------------------------------
 
-			#---------- Total likelihood -----------------------------
-			llk[case+"_llk"] = logsumexp(gllks,axis=1,keepdims=False)
-			#---------------------------------------------------------
+			for idx in chunk_idx:
+				gmm.setup(mu[idx],uncertainty=sg[idx])
+				llks[idx,i] = logsumexp(gmm.log_likelihoods(
+										weights,means,covariances),
+										axis=1,keepdims=False)
+			del gmm
+			#-----------------------------------------------------------
 
 		#------- Probability --------------------------------------
 		print("Computing probabilities ...")
-		llk["prob_cls"] = np.exp(llk["Cluster_llk"])/\
-			(np.exp(llk["Field_llk"]) + np.exp(llk["Cluster_llk"]))
+		llks = np.exp(llks)
+		prob_cls = llks[:,1]/llks.sum(axis=1)
+		del llks
 		#----------------------------------------------------------
 
 		#---------- Append probability -------------------
 		df_cat = pd.read_hdf(file_hdf,key="catalogue",mode="r")
-		df_cat["prob_cls"] = llk["prob_cls"]
+		df_cat["prob_cls"] = prob_cls
 		#-----------------------------------------------
 
 		print("Updating catalogue ...")
@@ -556,14 +596,11 @@ class Mecayotl(object):
 		del df_cat
 
 	def generate_synthetic(self,file_catalogue,
-							photometric_args,
 							n_members=1000,
 							n_field=100000,
-							seeds=range(1),
-							m_factor=2):
+							seeds=range(1)):
 
 		#-------- Libraries --------
-		self._initialize_amasijo()
 		from Amasijo import Amasijo
 		#---------------------------
 
@@ -584,12 +621,11 @@ class Mecayotl(object):
 			#-------------------------------------------
 
 			# #---------- Generate cluster ---------------------------
-			ama = Amasijo(photometric_args=photometric_args,
+			ama = Amasijo(photometric_args=self.photometric_args,
 						  kalkayotl_file=self.file_kalkayotl,
 						  seed=seed)
 
-			ama.generate_cluster(file_smp,n_stars=n_members,
-								m_factor=m_factor)
+			ama.generate_cluster(file_smp,n_stars=n_members)
 
 			ama.plot_cluster(file_plot=file_smp.replace(".csv",".pdf"))
 			#----------------------------------------------------------
@@ -709,7 +745,7 @@ class Mecayotl(object):
 			self.compute_probabilities(instance=instance)
 			#---------------------------------------------
 
-	def find_probability_threshold(self,seeds,bins=4,covariate="g",metric="ACC"):
+	def find_probability_threshold(self,seeds,bins=4,covariate="g",metric="MCC"):
 		#-------- Libraries -------------------
 		self._initialize_amasijo()
 		from Quality import ClassifierQuality
@@ -840,6 +876,13 @@ class Mecayotl(object):
 		df_cnd["g_rp"] = df_cnd["g"] - df_cnd["rp"]
 		#---------------------------------------------
 
+		#----------- Absoulute magnitude -----------
+		df_mem["G"] = df_mem["g"] + 5.*( 1.0 - 
+						np.log10(1000./df_mem["parallax"]))
+		df_cnd["G"] = df_cnd["g"] + 5.*( 1.0 - 
+						np.log10(1000./df_cnd["parallax"]))
+		#-------------------------------------------
+
 		#--------------------------------------------------------
 		pdf = PdfPages(filename=self.file_mem_plot)
 		for i,plot in enumerate(self.plots):
@@ -866,15 +909,11 @@ class Mecayotl(object):
 			ax.set_xlabel(plot[0])
 			ax.set_ylabel(plot[1])
 			#-----------------------------------------
-			# ax.yaxis.set_major_locator(MultipleLocator(10))
-			# ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
-			# # For the minor ticks, use no labels; default NullFormatter.
-			# ax.yaxis.set_minor_locator(MultipleLocator(5))
 			ax.locator_params(tight=True, nbins=10)
 			#----------------------------------------
 
 			#------- Invert ----------
-			if i==3:
+			if i>=3:
 				ax.invert_yaxis()
 			#-----------------------
 
@@ -889,29 +928,47 @@ class Mecayotl(object):
 		df_cnd.to_csv(self.file_mem_data,index=False)
 		#=============================================================
 
-	def run_real(self,file_catalogue,file_members,n_samples=100000):
+	def run_real(self,file_catalogue,file_members,n_samples=100000,chunks=1):
 
-		#-----------------------------------------------------
-		self.generate_true_cluster(file_kalkayotl=self.file_kalkayotl,
-								   n_samples=n_samples)
-		self.assemble_data(file_catalogue=file_catalogue,
-						  file_members=file_members,
-							instance="Real")
+		#-------------------- Synthetic --------------------------
+		if not os.path.isfile(self.file_smp_base.format("Real")):
+			self.generate_true_cluster(
+						file_kalkayotl=self.file_kalkayotl,
+						n_samples=n_samples)
+		#---------------------------------------------------------
+
+		#------------- Assemble -----------------------------------
+		if not os.path.isfile(self.file_data_base.format("Real")):
+			self.assemble_data(file_catalogue=file_catalogue,
+								file_members=file_members,
+								instance="Real")
+		#------------------------------------------------------
+		
+		#--------------- Infer models ---------------------
 		self.infer_models(case="Field",instance="Real")
 		self.infer_models(case="Cluster",instance="Real")
-		self.select_best_model(case="Field",instance="Real")
-		self.select_best_model(case="Cluster",instance="Real")
-		print("The best GMM models are:")
-		print(self.best_gmm)
+		#-------------------------------------------------
+
+		#------------- Select best models --------------------------
+		if "Real" not in self.best_gmm:
+			self.select_best_model(case="Field",instance="Real")
+			self.select_best_model(case="Cluster",instance="Real")
+			print("The best real GMM models are:")
+			print(self.best_gmm)
+		#-----------------------------------------------------------
+
+		#----------------- Plot best models ---------------
 		self.plot_model(case="Field",instance="Real")
 		self.plot_model(case="Cluster",instance="Real")
-		self.compute_probabilities(instance="Real")
-		#-------------------------------------------------------------------------
+		#--------------------------------------------------
 
-	def run_synthetic(self,seeds,file_catalogue,photometric_args,n_field=int(1e5)):
+		#-------- Probabilities ---------------------
+		self.compute_probabilities(instance="Real",chunks=chunks)
+		#--------------------------------------------
+
+	def run_synthetic(self,seeds,file_catalogue,n_field=int(1e5)):
 		#----------- Synthetic data --------------------------------
 		self.generate_synthetic(file_catalogue=file_catalogue,
-							   photometric_args=photometric_args,
 							   n_field=n_field,
 							   seeds=seeds)
 		self.compute_probabilities_synthetic(seeds)
@@ -940,13 +997,14 @@ if __name__ == "__main__":
 		"log_age": np.log10(8.0e8),    
 		"metallicity":0.012,
 		"Av": 0.0,         
-		"mass_limit":50.0, 
+		"mass_limits":[0.1,2.5], 
 		"bands":["V","I","G","BP","RP"]
 	}
 	#---------------------------------------------------------------------
 	
 
 	mcy = Mecayotl(file_kalkayotl=file_kalkayotl,
+				   photometric_args=photometric_args,
 				   path_main=dir_main,
 				   nc_cluster=range(1,11,1),
 				   nc_field=range(1,15,1),
@@ -956,7 +1014,6 @@ if __name__ == "__main__":
 	mcy.run_real(file_catalogue=file_rel_cat,file_members=file_members)
 	print(mcy.best_gmm)
 	mcy.run_synthetic(seeds=seeds,file_catalogue=file_syn_cat,
-					  photometric_args=photometric_args,
 					  n_field=int(1e6))
 	
 	mcy.find_probability_threshold(seeds=seeds,bins=5)
