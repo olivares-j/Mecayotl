@@ -745,11 +745,16 @@ class Mecayotl(object):
 			self.compute_probabilities(instance=instance)
 			#---------------------------------------------
 
-	def find_probability_threshold(self,seeds,bins=4,covariate="g",metric="MCC"):
+	def find_probability_threshold(self,seeds,bins=4,prob_steps=1000,
+		covariate="g",metric="MCC"):
 		#-------- Libraries -------------------
-		self._initialize_amasijo()
 		from Quality import ClassifierQuality
 		#--------------------------------------
+
+		file_plot = self.file_qlt_base.format(covariate,metric,"pdf")
+		file_tex  = self.file_qlt_base.format(covariate,metric,"tex")
+		file_thr  = self.file_qlt_base.format(covariate,metric,"pkl")
+		
 
 		os.makedirs(self.path_main+"/Classification/",exist_ok=True)
 
@@ -774,12 +779,15 @@ class Mecayotl(object):
 								variate="prob_cls",
 								covariate=covariate,
 								true_class="Cluster")
-		clq.confusion_matrix(bins=bins,metric=metric,prob_steps=100)
-		clq.plots(file_plot=self.file_qlt_base.format(covariate,metric,"pdf"))
-		clq.save(file_tex=self.file_qlt_base.format(covariate,metric,"tex"))
+		clq.confusion_matrix(bins=bins,
+							prob_steps=prob_steps,
+							metric=metric)
+		clq.plots(file_plot=file_plot)
+		clq.save(file_tex=file_tex)
 
-		self.file_thresholds = self.file_qlt_base.format(
-											covariate,metric,"pkl")
+		self.file_thresholds = file_thr
+
+		
 
 	def plot_members(self,probability_threshold=None,instance="Real"):
 
