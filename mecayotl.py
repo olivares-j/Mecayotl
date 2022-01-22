@@ -8,6 +8,9 @@ import dill
 from scipy.stats import multivariate_normal
 from scipy.special import logsumexp
 from astropy.table import Table
+from astropy.coordinates import SkyCoord, search_around_sky,FK5
+from astropy import units
+
 from pygaia.astrometry.vectorastrometry import phase_space_to_astrometry
 from pygaia.astrometry.constants import au_km_year_per_sec,au_mas_parsec
 
@@ -45,14 +48,16 @@ class Mecayotl(object):
 	https://gdn.iib.unam.mx/termino/search?queryCreiterio=mecayotl&queryPartePalabra=cualquiera&queryBuscarEn=nahuatl&queryLimiteRegistros=50 
 	"""
 
-	def __init__(self,file_kalkayotl,photometric_args,path_main,
+	def __init__(self,dir_main,photometric_args,
 					nc_cluster=range(2,21),
 					nc_field=range(2,21),
 					path_mcmichael = "/home/jolivares/Repos/McMichael/",
 					path_amasijo   = "/home/jolivares/Repos/Amasijo/",
+					path_kalkayotl = "/home/jolivares/Repos/Kalkayotl/",
 					cmap_probability="viridis_r",
 					cmap_features="viridis_r",
 					zero_point=[0.,0.,-0.017,0.,0.,0.],
+					use_GPU=False,
 					seed=1234):
 
 		gaia_observables = [
@@ -69,22 +74,28 @@ class Mecayotl(object):
 		self.seed = seed
 		#----------------------------------------------------
 
-		#------------- Directories -----------------
-		self.dir_mcmi       = path_mcmichael
-		self.dir_amasijo    = path_amasijo
-		self.path_main      = path_main
-		#--------------------------------------
+		#------------- Repo paths -----------------
+		self.path_mcmi       = path_mcmichael
+		self.path_amasijo    = path_amasijo
+		self.path_kalkayotl  = path_kalkayotl
+		#-------------------------------------------------
+
+		#--------- Directories ---------------------------
+		self.dir_main  = dir_main
+		self.dir_kal   = dir_main + "Kalkayotl"
+		#------------------------------------------
 
 		#---------------- Files --------------------------------------------------
-		self.file_kalkayotl  = file_kalkayotl
-		self.file_smp_base   = path_main + "/{0}/Data/members_synthetic.csv"
-		self.file_hdf_base   = path_main + "/{0}/Data/catalogue.h5"
-		self.file_data_base  = path_main + "/{0}/Data/data.h5"
-		self.file_model_base = path_main + "/{0}/Models/{1}_GMM_{2}.h5"
-		self.file_comparison = path_main + "/{0}/Models/{1}_comparison.png"
-		self.file_qlt_base   = path_main + "/Classification/quality_{0}_{1}.{2}"
-		self.file_mem_data   = path_main + "/Classification/members_mecayotl.csv"
-		self.file_mem_plot   = path_main + "/Classification/members_mecayotl.pdf"
+		self.file_mem_kal    = self.dir_kal + "/members+rvs.csv"
+		self.file_mod_kal    = self.dir_kal + "/{0}_central/Cluster_statistics.csv"
+		self.file_smp_base   = dir_main + "/{0}/Data/members_synthetic.csv"
+		self.file_hdf_base   = dir_main + "/{0}/Data/catalogue.h5"
+		self.file_data_base  = dir_main + "/{0}/Data/data.h5"
+		self.file_model_base = dir_main + "/{0}/Models/{1}_GMM_{2}.h5"
+		self.file_comparison = dir_main + "/{0}/Models/{1}_comparison.png"
+		self.file_qlt_base   = dir_main + "/Classification/quality_{0}_{1}.{2}"
+		self.file_mem_data   = dir_main + "/Classification/members_mecayotl.csv"
+		self.file_mem_plot   = dir_main + "/Classification/members_mecayotl.pdf"
 		#-------------------------------------------------------------------------
 
 		#-------------- Parameters -----------------------------------------------------
@@ -101,26 +112,30 @@ class Mecayotl(object):
 		self.RHO       = gaia_observables[12:]
 		self.nc_case   = {"Field":nc_field,"Cluster":nc_cluster}
 		self.best_gmm  = {}
+		self.best_kal  = None
 		self.photometric_args = photometric_args
+		self.use_GPU   = use_GPU
 		#----------------------------------------------------------------------------------
 
 		#----- Creal real data direcotries -----
-		os.makedirs(path_main + "/Real",exist_ok=True)
-		os.makedirs(path_main + "/Real/Data",exist_ok=True)
-		os.makedirs(path_main + "/Real/Models",exist_ok=True)
+		os.makedirs(dir_main + "/Real",exist_ok=True)
+		os.makedirs(dir_main + "/Real/Data",exist_ok=True)
+		os.makedirs(dir_main + "/Real/Models",exist_ok=True)
+		os.makedirs(self.dir_kal,exist_ok=True)
 		#-------------------------------------------
 
 		#----- Initialize Amasijo -------
-		sys.path.append(self.dir_amasijo)
+		sys.path.append(self.path_amasijo)
 		#--------------------------------
 
 	def _initialize_mcmichael(self):
-		#-------------- Commands to replace dimension -----------------------------
-		cmd = 'sed -e "s|DIMENSION|{0}|g"'.format(6)
-		cmd += ' {0}GPU/Functions_base.py > {0}GPU/Functions.py'.format(self.dir_mcmi)
-		os.system(cmd)
-		#--------------------------------------------------------------------------
-		sys.path.append(self.dir_mcmi)
+		if self.use_GPU:
+			#-------------- Commands to replace dimension -----------------------------
+			cmd = 'sed -e "s|DIMENSION|{0}|g"'.format(6)
+			cmd += ' {0}GPU/Functions_base.py > {0}GPU/Functions.py'.format(self.path_mcmi)
+			os.system(cmd)
+			#--------------------------------------------------------------------------
+		sys.path.append(self.path_mcmi)
 		
 	def generate_true_cluster(self,file_kalkayotl,n_samples=100000,instance="Real"):
 		"""
@@ -270,7 +285,10 @@ class Mecayotl(object):
 
 		#---------- Libraries ------------------
 		self._initialize_mcmichael()
-		from GPU.gmm import GaussianMixture
+		if self.use_GPU:
+			from GPU.gmm import GaussianMixture
+		else:
+			from CPU.gmm import GaussianMixture
 		#---------------------------------------
 
 		file_data = self.file_data_base.format(instance)
@@ -513,7 +531,10 @@ class Mecayotl(object):
 
 		#---------- Libraries ------------------
 		self._initialize_mcmichael()
-		from GPU.gmm import GaussianMixture
+		if self.use_GPU:
+			from GPU.gmm import GaussianMixture
+		else:
+			from CPU.gmm import GaussianMixture
 		#---------------------------------------
 
 		file_data  = self.file_data_base.format(instance)
@@ -546,8 +567,6 @@ class Mecayotl(object):
 		chunk_idx  = [range(chunk_off[c],chunk_off[c]+chunk_n[c])
 						for c in range(chunks)]
 		#-----------------------------------------------------
-
-		self._initialize_mcmichael()
 
 		#----- Likelihoods ----------------------------------
 		llks = np.zeros((N,2))
@@ -608,11 +627,16 @@ class Mecayotl(object):
 		for seed in seeds:
 			#--------- Directory ---------------------------------
 			name_base = "/Synthetic_{0}/".format(seed)
-			dir_sim   = self.path_main + name_base
+			dir_sim   = self.dir_main + name_base
 			file_smp  = self.file_smp_base.format(name_base)
 			file_data = self.file_data_base.format(name_base)
 			file_hdf  = self.file_hdf_base.format(name_base)
 			#----------------------------------------------------
+
+			if os.path.isfile(file_smp) and \
+			   os.path.isfile(file_data) and \
+			   os.path.isfile(file_hdf):
+			   continue 
 
 			#--- Create simulation directory -----------
 			os.makedirs(dir_sim,exist_ok=True)
@@ -622,7 +646,7 @@ class Mecayotl(object):
 
 			# #---------- Generate cluster ---------------------------
 			ama = Amasijo(photometric_args=self.photometric_args,
-						  kalkayotl_file=self.file_kalkayotl,
+						  kalkayotl_file=self.file_mod_kal.format(self.best_kal),
 						  seed=seed)
 
 			ama.generate_cluster(file_smp,n_stars=n_members)
@@ -701,7 +725,7 @@ class Mecayotl(object):
 		for i,seed in enumerate(seeds):
 			#------------ File and direcotry ----------------------------
 			instance  = "Synthetic_{0}".format(seed)
-			dir_model = "{0}/{1}/Models/".format(self.path_main,instance)
+			dir_model = "{0}/{1}/Models/".format(self.dir_main,instance)
 			file_hdf  = self.file_hdf_base.format(instance)
 			os.makedirs(dir_model,exist_ok=True)
 			#-------------------------------------------------------------
@@ -756,7 +780,7 @@ class Mecayotl(object):
 		file_thr  = self.file_qlt_base.format(covariate,metric,"pkl")
 		
 
-		os.makedirs(self.path_main+"/Classification/",exist_ok=True)
+		os.makedirs(self.dir_main+"/Classification/",exist_ok=True)
 
 		dfs = []
 		for seed in seeds:
@@ -884,12 +908,16 @@ class Mecayotl(object):
 		df_cnd["g_rp"] = df_cnd["g"] - df_cnd["rp"]
 		#---------------------------------------------
 
-		#----------- Absoulute magnitude -----------
+		#----------- Absoulute magnitude ------------------
 		df_mem["G"] = df_mem["g"] + 5.*( 1.0 - 
 						np.log10(1000./df_mem["parallax"]))
 		df_cnd["G"] = df_cnd["g"] + 5.*( 1.0 - 
 						np.log10(1000./df_cnd["parallax"]))
-		#-------------------------------------------
+		#--------------------------------------------------
+
+		#--------- Save candidates ------------------
+		df_cnd.to_csv(self.file_mem_data,index=False)
+		#--------------------------------------------
 
 		#--------------------------------------------------------
 		pdf = PdfPages(filename=self.file_mem_plot)
@@ -931,17 +959,17 @@ class Mecayotl(object):
 			plt.close()
 		pdf.close()
 		#-------------------------------------------------------------------
+		#===================================================================
 
-		#--------- Save candidates -------
-		df_cnd.to_csv(self.file_mem_data,index=False)
-		#=============================================================
+	def run_real(self,file_catalogue,file_members,
+				n_samples=100000,chunks=1,minimum_nmin=100):
 
-	def run_real(self,file_catalogue,file_members,n_samples=100000,chunks=1):
+		assert self.best_kal is not None, "You need to specify the best model from Kalkayotl!"
 
 		#-------------------- Synthetic --------------------------
 		if not os.path.isfile(self.file_smp_base.format("Real")):
 			self.generate_true_cluster(
-						file_kalkayotl=self.file_kalkayotl,
+						file_kalkayotl=self.file_mod_kal.format(self.best_kal),
 						n_samples=n_samples)
 		#---------------------------------------------------------
 
@@ -949,6 +977,7 @@ class Mecayotl(object):
 		if not os.path.isfile(self.file_data_base.format("Real")):
 			self.assemble_data(file_catalogue=file_catalogue,
 								file_members=file_members,
+								n_fld=n_samples,
 								instance="Real")
 		#------------------------------------------------------
 		
@@ -959,8 +988,10 @@ class Mecayotl(object):
 
 		#------------- Select best models --------------------------
 		if "Real" not in self.best_gmm:
-			self.select_best_model(case="Field",instance="Real")
-			self.select_best_model(case="Cluster",instance="Real")
+			self.select_best_model(case="Field",instance="Real",
+									minimum_nmin=minimum_nmin)
+			self.select_best_model(case="Cluster",instance="Real",
+									minimum_nmin=minimum_nmin)
 			print("The best real GMM models are:")
 			print(self.best_gmm)
 		#-----------------------------------------------------------
@@ -982,51 +1013,291 @@ class Mecayotl(object):
 		self.compute_probabilities_synthetic(seeds)
 		#----------------------------------------------------------
 
+	def members_to_kalkayotl(self,file_members,file_apogee,rv_sd_clipping=1.0,
+			g_mag_limit=22.0,rv_error_limits=[0.1,100.]):
+
+		#----------- Miscelaneous -----------------
+		apogee_columns = ["RA","DEC","GAIAEDR3_SOURCE_ID","VHELIO_AVG","VSCATTER","VERR"]
+		rename_columns = {"VHELIO_AVG":"apogee_rv","GAIAEDR3_SOURCE_ID":"source_id"}
+		#------------------------------------------
+
+		#=============== APOGEE ===============================
+		#----- Load APOGEE ----------------------------------
+		apogee = Table.read(file_apogee, format='fits',hdu=1)
+		#----------------------------------------------------
+
+		#--- Extract desired columns ----------------
+		apogee = apogee[apogee_columns]
+		#--------------------------------------------
+
+		#- Transform to pandas DF ---
+		apogee = apogee.to_pandas()
+		#----------------------------
+
+		#------------- RV error ---------------
+		apogee["apogee_rv_error"] = np.where(
+			apogee["VSCATTER"] == 0.0, 
+			apogee["VERR"],
+			apogee["VSCATTER"])
+		#--------------------------------------
+
+		#------- Rename columns ---------------------------
+		apogee.rename(columns=rename_columns,inplace=True)
+		#--------------------------------------------------
+
+		#------ Drop missing RA,DEC ----------------------------
+		apogee.dropna(subset=["RA","DEC"],inplace=True)
+		#-------------------------------------------------------
+
+		#--------- Drop unused columns ----------------------
+		apogee = apogee[["source_id","apogee_rv","apogee_rv_error"]]
+		#----------------------------------------------------
+
+		#----- Set index -------------------------
+		apogee.drop_duplicates(subset="source_id",inplace=True)
+		apogee.set_index("source_id",inplace=True)
+		#-----------------------------------------
+		#=======================================================
+
+		#============= Members =========================
+		#----- Load catalogue ------------------------
+		if '.csv' in file_members:
+			df = pd.read_csv(file_members)
+		elif ".fits" in file_members:
+			dat = Table.read(file_members, format='fits')
+			df  = dat.to_pandas()
+			del dat
+		else:
+			sys.exit("Format file not recognized. Only CSV of FITS")
+		#-------------------------------------------------------------
+
+		#------- Set index --------------------
+		df.set_index("source_id",inplace=True)
+		#--------------------------------------
+
+		assert df.index.is_unique, "Index values are not unique. Remove duplicated sources!"
+
+		#------- Drop faint members -----------------
+		df = df.loc[df["g"] < g_mag_limit]
+		#--------------------------------------------
+		#================================================
+
+		#============= X-Match ===================================
+		#----------------- Merge ----------------------------------------
+		print("Merging with original catalogue ...")
+		df = df.merge(apogee,how="left",left_index=True,right_index=True,
+					validate="one_to_one",
+					suffixes=["_original","_apogee"],sort=False)
+		#----------------------------------------------------------------
+
+
+
+		#----------- Use APOGEE when available -----------------------------------------
+		df["radial_velocity"] = df.apply(lambda x: x["dr2_radial_velocity"] 
+								if np.isnan(x["apogee_rv"]) else x["apogee_rv"],
+								axis=1)
+		df["radial_velocity_error"] = df.apply(lambda x: x["dr2_radial_velocity_error"] 
+								if np.isnan(x["apogee_rv"]) else x["apogee_rv_error"],
+								axis=1)
+		#-------------------------------------------------------------------------------
+
+		#--- Assert that observed values have uncertainties and viceversa ----
+		nan_rvs = np.isnan(df["radial_velocity"].values)
+		nan_unc = np.isnan(df["radial_velocity_error"].values)
+		np.testing.assert_array_equal(nan_rvs,nan_unc,
+		err_msg="There are discrepant rvs missing uncertainties and values!")
+		#---------------------------------------------------------------------
+
+		print("Replacing minumum and maximum uncertainties ...")
+		#----------- Set minimum uncertainty -------------------------------------
+		condition = df["radial_velocity_error"] < rv_error_limits[0]
+		df.loc[condition,"radial_velocity_error"] = rv_error_limits[0]
+		#-------------------------------------------------------------------------
+
+		#----------- Set maximum uncertainty -------------------------------------
+		condition = df["radial_velocity_error"] > rv_error_limits[1]
+		df.loc[condition,"radial_velocity"] = np.nan
+		df.loc[condition,"radial_velocity_error"]  = np.nan
+		#-------------------------------------------------------------------------
+
+		#---------- Binaries --------------------------------------------------------
+		mu_rv = np.nanmean(df["radial_velocity"])
+		sd_rv = np.nanstd(df["radial_velocity"])
+		print("Radial velocity: {0:2.1f} +/- {1:2.1f} km/s".format(mu_rv,sd_rv))
+		maha_dst = np.abs(df["radial_velocity"] - mu_rv)/sd_rv
+		condition = maha_dst > rv_sd_clipping
+		df.loc[condition,"radial_velocity"] = np.nan
+		df.loc[condition,"radial_velocity_error"]  = np.nan
+		print("Binaries/outliers: {0}".format(sum(condition)))
+		#----------------------------------------------------------------------------
+
+		print("Saving file ...")
+		#------- Save as csv ---------
+		df.to_csv(self.file_mem_kal)
+		#-----------------------------
+		del df
+		#==================================================================
+
+	def run_kalkayotl(self,
+		gmm_n = 2,
+		tuning_iters = 3000,
+		sample_iters = 3000,
+		target_accept = 0.95,
+		optimize = True,
+		hdi_prob = 0.95
+		):
+
+		#----- Import the module -----------------
+		sys.path.append(self.path_kalkayotl)
+		from kalkayotl.inference import Inference
+		#-----------------------------------------
+
+		#============== Prior ===============================================
+		list_of_prior = [
+			{"type":"Gaussian",
+				"parameters":{"location":None,"scale":None},
+				"hyper_parameters":{
+									"alpha":None,
+									"beta":50.0,
+									"gamma":None,
+									"delta":None,
+									"eta":None
+									},
+				"parametrization":"central",
+			},
+
+			{"type":"GMM",      
+				"parameters":{"location":None,"scale":None,"weights":None},
+				"hyper_parameters":{
+									"alpha":None,
+									"beta":50.0, 
+									"gamma":None,
+									"delta":np.repeat(2,gmm_n),
+									"eta":None,
+									"n_components":gmm_n
+									},
+				"parametrization":"central",
+			},
+			]
+		#====================================================================
+
+		#--------------------- Loop over prior types ------------------------------------
+		for prior in list_of_prior:
+
+			#------ Output directories for each prior --------------------------------
+			dir_prior = self.dir_kal +"/"+ prior["type"] + "_" + prior["parametrization"]
+			#-------------------------------------------------------------------------
+
+			#---------- Continue if file already present ----------
+			if os.path.exists(dir_prior+"/Cluster_statistics.csv"):
+				continue
+			#------------------------------------------------------
+
+			#----- Create prior directory -------
+			os.makedirs(dir_prior,exist_ok=True)
+			#------------------------------------
+
+			#--------- Initialize the inference module ----------------------------------------
+			kal = Inference(dimension=6,
+							dir_out=dir_prior,
+							zero_point=self.zero_point,
+							indep_measures=False,
+							reference_system="ICRS")
+
+			#-------- Load the data set --------------------
+			# It will use the Gaia column names by default.
+			kal.load_data(self.file_mem_kal)
+
+			#------ Prepares the model -------------------
+			kal.setup(prior=prior["type"],
+					  parameters=prior["parameters"],
+					  hyper_parameters=prior["hyper_parameters"],
+					  transformation="pc",
+					  parametrization=prior["parametrization"])
+
+			kal.run(sample_iters=sample_iters,
+					tuning_iters=tuning_iters,
+					target_accept=target_accept,
+					optimize=optimize,
+					chains=2,
+					cores=2)
+
+			kal.load_trace()
+			kal.convergence()
+			kal.plot_chains()
+			kal.plot_model(chain=1)
+			kal.save_statistics(hdi_prob=hdi_prob)
+
+
 
 
 if __name__ == "__main__":
 	#----------------- Directories ------------------------
-	dir_repos= "/scratch/jolivares/Repos/"
-	dir_main = "/scratch/jolivares/OCs/ComaBer/Mecayotl/"
-	dir_cats = "/scratch/jolivares/OCs/ComaBer/Catalogues/"
+	dir_repos= "/home/jolivares/Repos/"
+	dir_main = "/home/jolivares/Repos/Mecayotl/Test/"
+	dir_cats = "/home/jolivares/Repos/Mecayotl/Test/"
 	#-------------------------------------------------------
 
 	#----------- Files --------------------------------------------
-	file_kalkayotl = dir_main + "Real/Data/Cluster_statistics.csv"
-	file_members   = dir_main + "Real/Data/members_Furnkranz+2019.csv"
-	file_new_mem   = dir_main + "Real/Data/members_mecayotl.csv"
-	file_rel_cat   = dir_cats + "ComaBer_33deg.fits"
-	file_syn_cat   = dir_cats + "ComaBer_33deg_simulation.fits"
+	file_members = dir_main + "members_Furnkranz+2019.fits"
+	file_apogee = "/home/jolivares/Cumulos/APOGEE/allStar-dr17-synspec_rev1.fits"
+	file_real_catalogue  = dir_cats + "ComaBer.fits"
+	file_synth_catalogue = dir_cats + "ComaBer_simulation.fits"
 	#--------------------------------------------------------------
 
 	#----- Miscellaneous ------------------------------------------------
 	seeds = range(10)
+	bins  = 2
 	photometric_args = {
-		"log_age": np.log10(8.0e8),    
-		"metallicity":0.012,
-		"Av": 0.0,         
-		"mass_limits":[0.1,2.5], 
-		"bands":["V","I","G","BP","RP"]
+	"log_age": 8.9,    
+	"metallicity":0.012,
+	"Av": 0.0,         
+	"mass_limits":[0.1,2.5], 
+	"bands":["V","I","G","BP","RP"]
 	}
 	#---------------------------------------------------------------------
 	
 
-	mcy = Mecayotl(file_kalkayotl=file_kalkayotl,
+	mcy = Mecayotl(dir_main=dir_main,
 				   photometric_args=photometric_args,
-				   path_main=dir_main,
-				   nc_cluster=range(1,11,1),
-				   nc_field=range(1,15,1),
+				   nc_cluster=range(2,10),
+				   nc_field=range(2,10),
 				   path_amasijo=dir_repos+"Amasijo/",
-				   path_mcmichael=dir_repos+"McMichael/")
+				   path_mcmichael=dir_repos+"McMichael/",
+				   seed=1234)
 
-	mcy.run_real(file_catalogue=file_rel_cat,file_members=file_members)
-	print(mcy.best_gmm)
-	mcy.run_synthetic(seeds=seeds,file_catalogue=file_syn_cat,
-					  n_field=int(1e6))
-	
-	mcy.find_probability_threshold(seeds=seeds,bins=5)
+	#----------- Kalkayotl ------------------------------
+	mcy.members_to_kalkayotl(file_members=file_members,
+							file_apogee=file_apogee,
+							rv_sd_clipping=1.0,
+							g_mag_limit=18.0,
+							rv_error_limits=[0.1,100.])
+	mcy.run_kalkayotl()
+	mcy.best_kal = "Gaussian"
+	#-----------------------------------------------------
+
+	#--------------- Real -------------------------------
+	mcy.run_real(file_catalogue=file_real_catalogue,
+				file_members=file_members,
+				n_samples=1000,
+				minimum_nmin=0,
+				chunks=1)
+	mcy.best_gmm = {'Real': {'Field': 3, 'Cluster': 2}}
+	#----------------------------------------------------
+
+	#---------- Synthetic -------------------------------
+	mcy.run_synthetic(seeds=seeds,
+					  file_catalogue=file_synth_catalogue,
+					  n_field=1000)
+	mcy.find_probability_threshold(seeds=seeds,bins=bins)
+	#------------------------------------------------------
+
+	#------------- New members -----------------------------
 	mcy.plot_members(instance="Real")
-	#----------------------------------------------------------------------------
+	#-------------------------------------------------------
+
+	
+
 
 	
 
