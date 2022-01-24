@@ -598,11 +598,18 @@ class Mecayotl(object):
 			del gmm
 			#-----------------------------------------------------------
 
+		assert np.all(np.isfinite(llks)), "Likelihoods are not finite!"
+		#--------------------------------------------------------------
+
 		#------- Probability --------------------------------------
 		print("Computing probabilities ...")
-		llks = np.exp(llks)
-		prob_cls = llks[:,1]/llks.sum(axis=1)
+		# llks = np.exp(llks)
+		# prob_cls = llks[:,1]/llks.sum(axis=1)
+		# del llks
+		prob_cls = 1.0/(1.0+np.exp(llks[:,0]-llks[:,1]))
 		del llks
+
+		assert np.all(np.isfinite(prob_cls)), "Probabilities are not finite!"
 		#----------------------------------------------------------
 
 		#---------- Append probability -------------------
