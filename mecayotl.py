@@ -1166,7 +1166,7 @@ class Mecayotl(object):
 				"parametrization":"central",
 			},
 
-			{"type":"GMM",      
+			{"type":"CGMM",      
 				"parameters":{"location":None,"scale":None,"weights":None},
 				"hyper_parameters":{
 									"alpha":None,
