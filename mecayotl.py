@@ -802,11 +802,11 @@ class Mecayotl(object):
 		clq = ClassifierQuality(file_data=dfs,
 								variate="prob_cls",
 								covariate=covariate,
+								covariate_limits=covariate_limits,
 								true_class="Cluster")
 		clq.confusion_matrix(bins=bins,
 							prob_steps=prob_steps,
-							metric=metric,
-							covariate_limits=covariate_limits)
+							metric=metric)
 		clq.plots(file_plot=file_plot)
 		clq.save(file_tex=file_tex)
 
