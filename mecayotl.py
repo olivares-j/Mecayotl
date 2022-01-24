@@ -770,7 +770,7 @@ class Mecayotl(object):
 			#---------------------------------------------
 
 	def find_probability_threshold(self,seeds,bins=4,prob_steps=1000,
-		covariate="g",metric="MCC"):
+		covariate="g",metric="MCC",covariate_limits=None):
 		#-------- Libraries -------------------
 		from Quality import ClassifierQuality
 		#--------------------------------------
@@ -805,7 +805,8 @@ class Mecayotl(object):
 								true_class="Cluster")
 		clq.confusion_matrix(bins=bins,
 							prob_steps=prob_steps,
-							metric=metric)
+							metric=metric,
+							covariate_limits=covariate_limits)
 		clq.plots(file_plot=file_plot)
 		clq.save(file_tex=file_tex)
 
