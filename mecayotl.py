@@ -179,12 +179,15 @@ class Mecayotl(object):
 		#-------------------------------------------------
 
 		#--------------- Catalogue ---------------------
+		print("Reading catalogue ...")
 		cat = Table.read(file_catalogue, format='fits')
 		df_cat = cat.to_pandas()
 		del cat
+		n_sources = df_cat.shape[0]
 		#-----------------------------------------------
 
 		#--------- Members ------------------------------------------
+		print("Reading members ...")
 		if '.csv' in file_members:
 			df_mem = pd.read_csv(file_members)
 		elif ".fits" in file_members:
@@ -195,17 +198,13 @@ class Mecayotl(object):
 			sys.exit("Format file not recognized. Only CSV of FITS")
 		#-------------------------------------------------------------
 
-		#----------- Synthetic -----------------------------------
-		df_syn = pd.read_csv(file_smp,usecols=self.OBS)
-		#---------------------------------------------------
-
-		n_sources = df_cat.shape[0]
-		mu_syn    = df_syn.to_numpy()
+		#----------- Synthetic --------------------------------------
+		print("Reading synthetic ...")
+		mu_syn    = pd.read_csv(file_smp,usecols=self.OBS).to_numpy()
 		sg_syn    = np.zeros((len(mu_syn),6,6))
+		#-------------------------------------------------------------
 
-		#----------- Covariance matrices ------------------
-		print("Filling covariance matrices ...")
-		sg_data = np.zeros((n_sources,6,6))
+		print("Assembling data ...")
 
 		#------ Extract ---------------------------
 		mu_data = df_cat.loc[:,self.OBS].to_numpy()
@@ -216,6 +215,46 @@ class Mecayotl(object):
 		#---- Substract zero point---------
 		mu_data = mu_data - self.zero_point
 		#----------------------------------
+
+		#----- Select members and field ----------
+		ids_all  = df_cat["source_id"].to_numpy()
+		ids_mem  = df_mem["source_id"].to_numpy()
+		mask_mem = np.isin(ids_all,ids_mem)
+		idx_cls  = np.where(mask_mem)[0]
+		idx_fld  = np.where(~mask_mem)[0]
+		#-----------------------------------------
+
+		#-------------- Members -----------------------------
+		assert len(idx_cls) > 1, "Error: Empty members file!"
+		df_cat["Member"] = False
+		df_cat.loc[mask_mem,"Member"] = True
+		#----------------------------------------------------
+
+		#---------- Random sample of field sources ------------------
+		idx_rnd  = np.random.choice(idx_fld,size=n_fld,replace=False)
+		mu_field = mu_data[idx_rnd]
+		#------------------------------------------------------------
+
+		#------------- Write -----------------------------------------
+		print("Saving catalogue and mean values ...")
+		df_cat.to_hdf(file_hdf,key="catalogue",mode="w")
+
+		with h5py.File(file_data, 'w') as hf:
+			hf.create_dataset('mu',         chunks=True,data=mu_data)
+			hf.create_dataset('mu_Cluster', chunks=True,data=mu_syn)
+			hf.create_dataset('sg_Cluster', chunks=True,data=sg_syn)
+			hf.create_dataset('mu_Field',   chunks=True,data=mu_field)
+			hf.create_dataset('idx_Field',  chunks=True,data=idx_fld)
+			hf.create_dataset('idx_Cluster',chunks=True,data=idx_cls)
+		#-------------------------------------------------------------
+
+		#-------- Clear memory -------------------------
+		del df_cat,mu_data,mu_field,mu_syn,sg_syn
+		#-----------------------------------------------
+
+		#============= Covariance matrices =====================
+		print("Filling covariance matrices ...")
+		sg_data = np.zeros((n_sources,6,6))
 
 		#----- There is no correlation with r_vel ---
 		idx_tru = np.triu_indices(6,k=1)
@@ -244,41 +283,19 @@ class Mecayotl(object):
 
 			pbar.update()
 		pbar.close()
+		#========================================================
 
-		#----- Select members and field ----------
-		ids_all  = df_cat["source_id"].to_numpy()
-		ids_mem  = df_mem["source_id"].to_numpy()
-		mask_mem = np.isin(ids_all,ids_mem)
-		idx_cls  = np.where(mask_mem)[0]
-		idx_fld  = np.where(~mask_mem)[0]
-		#-----------------------------------------
-
-		#-------------- Members -----------------------------
-		assert len(idx_cls) > 1, "Error: Empty members file!"
-		df_cat["Member"] = False
-		df_cat.loc[mask_mem,"Member"] = True
-		#----------------------------------------------------
-		
-		#---------- Random sample of field sources ------------------
-		idx_rnd  = np.random.choice(idx_fld,size=n_fld,replace=False)
-		mu_field = mu_data[idx_rnd]
+		#----- Field sources ------
 		sg_field = sg_data[idx_rnd]
-		#------------------------------------------------------------
-		
-		#------------- Write -----------------------------------------
-		df_cat.to_hdf(file_hdf,key="catalogue",mode="w")
+		#--------------------------
 
-		with h5py.File(file_data, 'w') as hf:
-			hf.create_dataset('mu',         chunks=True,data=mu_data)
+		#---------------- Write ---------------------------------------
+		print("Saving covariance matrices ...")
+		with h5py.File(file_data, 'a') as hf:
 			hf.create_dataset('sg',         chunks=True,data=sg_data)
-			hf.create_dataset('mu_Cluster', chunks=True,data=mu_syn)
-			hf.create_dataset('mu_Field',   chunks=True,data=mu_field)
-			hf.create_dataset('sg_Cluster', chunks=True,data=sg_syn)
 			hf.create_dataset('sg_Field',   chunks=True,data=sg_field)
-			hf.create_dataset('idx_Field',  chunks=True,data=idx_fld)
-			hf.create_dataset('idx_Cluster',chunks=True,data=idx_cls)
-		#---------------------------------------------------------
-		del df_cat,df_syn,mu_data,sg_data,mu_field,sg_field,mu_syn,sg_syn
+		#--------------------------------------------------------------
+		del sg_data,sg_field
 		print("Data correctly assembled")
 
 	def infer_models(self,case="Field",instance="Real"):
