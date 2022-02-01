@@ -137,7 +137,7 @@ class Mecayotl(object):
 			#--------------------------------------------------------------------------
 		sys.path.append(self.path_mcmi)
 		
-	def generate_true_cluster(self,file_kalkayotl,n_samples=100000,instance="Real"):
+	def generate_true_cluster(self,file_kalkayotl,n_cluster=int(1e5),instance="Real"):
 		"""
 		Generate synthetic data based on Kalkayotl input parameters
 		"""
@@ -152,7 +152,7 @@ class Mecayotl(object):
 					  photometric_args=self.photometric_args,
 					  seed=self.seed)
 
-		X = ama._generate_phase_space(n_stars=n_samples)
+		X = ama._generate_phase_space(n_stars=n_cluster)
 
 		df_as,_ = ama._generate_true_astrometry(X)
 		#----------------------------------------------------
@@ -171,7 +171,8 @@ class Mecayotl(object):
 		df_as.to_csv(file_smp,index_label="source_id")
 
 	def assemble_data(self,file_catalogue,file_members,
-						n_fld=100000,instance="Real"):
+					n_field=int(1e5),
+					instance="Real"):
 		#------------ Files ------------------------------
 		file_data = self.file_data_base.format(instance)
 		file_hdf  = self.file_hdf_base.format(instance)
@@ -231,7 +232,7 @@ class Mecayotl(object):
 		#----------------------------------------------------
 
 		#---------- Random sample of field sources ------------------
-		idx_rnd  = np.random.choice(idx_fld,size=n_fld,replace=False)
+		idx_rnd  = np.random.choice(idx_fld,size=n_field,replace=False)
 		mu_field = mu_data[idx_rnd]
 		#------------------------------------------------------------
 
@@ -240,6 +241,7 @@ class Mecayotl(object):
 		df_cat.to_hdf(file_hdf,key="catalogue",mode="w")
 
 		with h5py.File(file_data, 'w') as hf:
+			hf.create_dataset('ids',        chunks=True,data=ids_all)
 			hf.create_dataset('mu',         chunks=True,data=mu_data)
 			hf.create_dataset('mu_Cluster', chunks=True,data=mu_syn)
 			hf.create_dataset('sg_Cluster', chunks=True,data=sg_syn)
@@ -568,7 +570,6 @@ class Mecayotl(object):
 		N,_ = mu.shape
 		#----------------
 	
-
 		#------- Chunks ----------------------------------------
 		# Compute partitioning of the input array of size N
 		proc_n = [ N // chunks + (N % chunks > n) 
@@ -616,36 +617,62 @@ class Mecayotl(object):
 			#-----------------------------------------------------------
 
 		assert np.all(np.isfinite(llks)), "Likelihoods are not finite!"
+		del mu,sg
 		#--------------------------------------------------------------
 
-		#------- Probability --------------------------------------
+		#------- Probability ------------------------------------------------
 		print("Computing probabilities ...")
-		# llks = np.exp(llks)
-		# prob_cls = llks[:,1]/llks.sum(axis=1)
-		# del llks
 		prob_cls = 1.0/(1.0+np.exp(llks[:,0]-llks[:,1]))
 		del llks
-
 		assert np.all(np.isfinite(prob_cls)), "Probabilities are not finite!"
-		#----------------------------------------------------------
+		#--------------------------------------------------------------------
 
-		#---------- Append probability -------------------
+		#---------- Append probability -------------------------
+		print("Appending probabilities ...")
 		df_cat = pd.read_hdf(file_hdf,key="catalogue",mode="r")
 		df_cat["prob_cls"] = prob_cls
-		#-----------------------------------------------
+		#-------------------------------------------------------
 
 		print("Updating catalogue ...")
 		df_cat.to_hdf(file_hdf,key="catalogue",format="table",mode="w")
 		del df_cat
 
-	def generate_synthetic(self,file_catalogue,
-							n_members=1000,
-							n_field=100000,
+	def generate_synthetic(self,probability_threshold=0.5,
+							n_cluster=int(1e5),
+							n_field=int(1e5),
 							seeds=range(1)):
 
 		#-------- Libraries --------
 		from Amasijo import Amasijo
 		#---------------------------
+
+		file_data  = self.file_data_base.format("Real")
+		file_hdf   = self.file_hdf_base.format("Real")
+
+		#------ Read real catalogue ----------------------------
+		df_cat = pd.read_hdf(file_hdf,key="catalogue",mode="r")
+		#-------------------------------------------------------
+
+		#----------- Field sources ---------------
+		idx_field = np.where(df_cat["prob_cls"] \
+					< probability_threshold)[0]
+		df_field = df_cat.iloc[idx_field]
+		#-----------------------------------------
+
+		assert len(idx_field) > n_field, "Not enough field sources!"
+		
+		#------- Read data-------------------
+		with h5py.File(file_data, 'r') as hf:
+			mu = np.array(hf.get("mu"))
+			sg = np.array(hf.get("sg"))
+		#------------------------------------
+
+		#------ Field data ------------
+		mu_field = mu[idx_field].copy()
+		sg_field = sg[idx_field].copy()
+		#------------------------------
+
+		del idx_field,df_cat,mu,sg
 
 		#================= Generate syntehtic data ====================
 		for seed in seeds:
@@ -668,29 +695,32 @@ class Mecayotl(object):
 			os.makedirs(dir_sim + "Models",exist_ok=True)
 			#-------------------------------------------
 
-			# #---------- Generate cluster ---------------------------
+			#---------- Generate cluster ---------------------------
 			ama = Amasijo(photometric_args=self.photometric_args,
 						  kalkayotl_file=self.file_mod_kal.format(self.best_kal),
 						  seed=seed)
 
-			ama.generate_cluster(file_smp,n_stars=n_members)
+			ama.generate_cluster(file_smp,n_stars=n_cluster)
 
 			ama.plot_cluster(file_plot=file_smp.replace(".csv",".pdf"))
 			#----------------------------------------------------------
 
-			#-------- Read cluster and field ---------------
-			print("Reading field and cluster data ...")
+			#-------- Read cluster ------------
+			print("Reading cluster data ...")
 			df_cls = pd.read_csv(file_smp)
-			fld    = Table.read(file_catalogue, format='fits')
-			df_fld = fld.to_pandas().sample(n=n_field,
-										random_state=seed)
-			#-----------------------------------------------
+			#----------------------------------
 
-			#------ Rename field radial_velocity -----------------
-			df_fld.rename(columns={"radial_velocity":self.OBS[-1],
-						   "radial_velocity_error":self.UNC[-1]},
-						   inplace=True)
-			#-----------------------------------------------------
+			#------- Select field sample -----------------
+			print("Selecting field sample ...")
+			idx_fld = np.random.choice(df_field.shape[0],
+							size=n_field,replce=False)
+			df_fld = df_field.iloc[idx_fld]
+			mu_fld = mu_field[idx_fld]
+			sg_fld = sg_fld[idx_field]
+			del idx_fld
+			#--------------------------------------------
+
+			print("Concatenating cluster and field samples ...")
 
 			#------ Class -----------
 			df_cls["Cluster"] = True
@@ -701,48 +731,52 @@ class Mecayotl(object):
 			df = pd.concat([df_cls,df_fld],ignore_index=True)
 			#------------------------------------------------
 
-			#------ Extract -----------------------
-			mu_data = df.loc[:,self.OBS].to_numpy()
-			sd_data = df.loc[:,self.UNC].to_numpy()
-			#--------------------------------------
-
 			#----- Select members and field -------
 			idx_cls  = np.where( df["Cluster"])[0]
 			idx_fld  = np.where(~df["Cluster"])[0]
 			#--------------------------------------
 
 			#-------- Write & delete ------------------------
+			print("Savinf catalogue ...")
 			df.to_hdf(file_hdf,key="catalogue",mode="w")
 			del df # Release memory
 			#----------------------------------------------
 
-			#----------- Covariance matrices ------------------
-			print("Filling covariance matrices ...")
-
-			#-------- sd to diag ------------------
-			zeros = np.zeros((len(sd_data),6,6))
-			diag = np.einsum('...jj->...j',zeros)
-			diag[:] = np.square(sd_data)
-			sg_data = zeros.copy()
-			del diag
-			del zeros
+			#------ Extract -----------------------
+			mu_cls = df_cls.loc[:,self.OBS].to_numpy()
+			sd_cls = df_cls.loc[:,self.UNC].to_numpy()
 			#--------------------------------------
 
+			#----------- Covariance matrices -------
+			print("Filling covariance matrices ...")
+			zeros = np.zeros((len(sd_cls),6,6))
+			diag = np.einsum('...jj->...j',zeros)
+			diag[:] = np.square(sd_cls)
+			sg_cls = zeros.copy()
+			del diag
+			del zeros
+			#----------------------------------------
+
+			#------- Concatenate ---------------------------
+			mu_data = np.concatenate((mu_cls,mu_fld),axis=0)
+			sg_data = np.concatenate((sg_cls,sg_fld),axis=0)
+			#-----------------------------------------------
+
 			#--------------- Write data ------------------------------------
+			print("Saving data ...")
 			with h5py.File(file_data, 'w') as hf:
 				hf.create_dataset('mu',         chunks=True,data=mu_data)
 				hf.create_dataset('sg',         chunks=True,data=sg_data)
-				hf.create_dataset('mu_Cluster', chunks=True,data=mu_data[idx_cls])
-				hf.create_dataset('mu_Field',   chunks=True,data=mu_data[idx_fld])
-				hf.create_dataset('sg_Cluster', chunks=True,data=sg_data[idx_cls])
-				hf.create_dataset('sg_Field',   chunks=True,data=sg_data[idx_fld])
+				hf.create_dataset('mu_Cluster', chunks=True,data=mu_cls)
+				hf.create_dataset('mu_Field',   chunks=True,data=mu_fld)
+				hf.create_dataset('sg_Cluster', chunks=True,data=sg_cls)
+				hf.create_dataset('sg_Field',   chunks=True,data=sg_fld)
 				hf.create_dataset('idx_Field',  chunks=True,data=idx_fld)
 				hf.create_dataset('idx_Cluster',chunks=True,data=idx_cls)
 			#----------------------------------------------------------------
 			print("Data correctly written")
-			del mu_data
-			del sg_data
-			del sd_data
+			del df_cls,df_fld,mu_cls,sd_cls,sg_cls,mu_fld,sg_fld,idx_cls,idx_fld
+			del mu_data,sg_data
 
 	def compute_probabilities_synthetic(self,seeds):
 
@@ -802,7 +836,6 @@ class Mecayotl(object):
 		file_plot = self.file_qlt_base.format(covariate,metric,"pdf")
 		file_tex  = self.file_qlt_base.format(covariate,metric,"tex")
 		file_thr  = self.file_qlt_base.format(covariate,metric,"pkl")
-		
 
 		os.makedirs(self.dir_main+"/Classification/",exist_ok=True)
 
@@ -835,8 +868,6 @@ class Mecayotl(object):
 		clq.save(file_tex=file_tex)
 
 		self.file_thresholds = file_thr
-
-		
 
 	def plot_members(self,probability_threshold=None,instance="Real"):
 
@@ -987,22 +1018,22 @@ class Mecayotl(object):
 		#===================================================================
 
 	def run_real(self,file_catalogue,file_members,
-				n_samples=100000,chunks=1,minimum_nmin=100):
+				n_cluster=int(1e5),n_field=int(1e5),
+				chunks=1,minimum_nmin=100):
 
 		assert self.best_kal is not None, "You need to specify the best model from Kalkayotl!"
 
 		#-------------------- Synthetic --------------------------
 		if not os.path.isfile(self.file_smp_base.format("Real")):
-			self.generate_true_cluster(
-						file_kalkayotl=self.file_mod_kal.format(self.best_kal),
-						n_samples=n_samples)
+			self.generate_true_cluster(n_cluster=n_cluster,
+					file_kalkayotl=self.file_mod_kal.format(self.best_kal))
 		#---------------------------------------------------------
 
 		#------------- Assemble -----------------------------------
 		if not os.path.isfile(self.file_data_base.format("Real")):
 			self.assemble_data(file_catalogue=file_catalogue,
 								file_members=file_members,
-								n_fld=n_samples,
+								n_field=n_field,
 								instance="Real")
 		#------------------------------------------------------
 		
@@ -1030,9 +1061,11 @@ class Mecayotl(object):
 		self.compute_probabilities(instance="Real",chunks=chunks)
 		#--------------------------------------------
 
-	def run_synthetic(self,seeds,file_catalogue,n_field=int(1e5)):
+	def run_synthetic(self,seeds,probability_threshold=0.5,
+					n_cluster=int(1e5),n_field=int(1e5)):
 		#----------- Synthetic data --------------------------------
-		self.generate_synthetic(file_catalogue=file_catalogue,
+		self.generate_synthetic(probability_threshold=probability_threshold,
+							   n_cluster=n_cluster,
 							   n_field=n_field,
 							   seeds=seeds)
 		self.compute_probabilities_synthetic(seeds)
