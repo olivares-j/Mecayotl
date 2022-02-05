@@ -653,7 +653,6 @@ class Mecayotl(object):
 		#---------------------------
 
 		#================= Generate syntehtic data ====================
-		print("Generating synthetic cluster")
 		for seed in seeds:
 			#--------- Directory ---------------------------------
 			name_base = "/Synthetic_{0}/".format(seed)
@@ -664,7 +663,7 @@ class Mecayotl(object):
 			if os.path.isfile(file_smp):
 			   continue 
 
-			print("Seed {0} ...".format(seed))
+			print(" Generating cluster data of seed {0} ...".format(seed))
 
 			#--- Create simulation directory -----------
 			os.makedirs(dir_sim,exist_ok=True)
@@ -686,11 +685,9 @@ class Mecayotl(object):
 		columns    = [ obs for obs in self.observables \
 						if obs not in self.RHO]
 		local_seeds = seeds.copy()
-		print(local_seeds)
 
 		#-------------- Check if data exists ----------------------
 		for seed in seeds:
-			print(seed)
 			#--------- Directory ---------------------------------
 			name_base = "/Synthetic_{0}/".format(seed)
 			dir_sim   = self.dir_main + name_base
@@ -700,9 +697,7 @@ class Mecayotl(object):
 			if os.path.isfile(file_data):
 				with h5py.File(file_data, 'r') as hf:
 					if "mu" in hf.keys():
-						print("Data present")
 						local_seeds.remove(seed)
-			print(local_seeds)
 		#---------------------------------------------------------
 
 		#-------------------------
@@ -712,7 +707,6 @@ class Mecayotl(object):
 
 		#================= Cluster ==================================
 		for seed in local_seeds:
-			print("Seed {0} ...".format(seed))
 			#--------- Directory ---------------------------------
 			name_base = "/Synthetic_{0}/".format(seed)
 			dir_sim   = self.dir_main + name_base
@@ -723,13 +717,12 @@ class Mecayotl(object):
 			if os.path.isfile(file_data):
 			   continue 
 
+			print("Saving cluster data of seed {0} ...".format(seed))
+
 			#-------- Read cluster -----------------------
-			print("Reading cluster data ...")
 			df_cls = pd.read_csv(file_smp,usecols=columns)
 			n_cls  = len(df_cls)
 			#---------------------------------------------
-
-			print("Concatenating cluster and field samples ...")
 
 			#----- Select members and field -----------------
 			idx_cls  = np.arange(n_cls)
@@ -743,7 +736,6 @@ class Mecayotl(object):
 			#-----------------------------------------
 
 			#----------- Covariance matrices -------
-			print("Filling covariance matrices ...")
 			zeros = np.zeros((len(sd_cls),6,6))
 			diag = np.einsum('...jj->...j',zeros)
 			diag[:] = np.square(sd_cls)
@@ -752,13 +744,11 @@ class Mecayotl(object):
 			#----------------------------------------
 
 			#--------------- Write data ------------------------------------
-			print("Saving data ...")
 			with h5py.File(file_data, 'w') as hf:
 				hf.create_dataset('mu_Cluster', data=mu_cls)
 				hf.create_dataset('sg_Cluster', data=sg_cls)
 				hf.create_dataset('ex_Cluster', data=ex_cls)
 				hf.create_dataset('idx_Cluster',data=idx_cls)
-			print("Data correctly written")
 			#----------------------------------------------------------------
 			del idx_cls,mu_cls,sg_cls,ex_cls
 
@@ -788,7 +778,7 @@ class Mecayotl(object):
 
 		#================= Cluster ==================================
 		for seed in local_seeds:
-			print("Seed {0} ...".format(seed))
+			print("Saving data of seed {0} ...".format(seed))
 			#--------- Directory ---------------------------------
 			name_base = "/Synthetic_{0}/".format(seed)
 			dir_sim   = self.dir_main + name_base
@@ -803,8 +793,6 @@ class Mecayotl(object):
 				ex_cls  = np.array(hf.get("ex_Cluster"))
 			#-------------------------------------------------
 
-			print("Concatenating cluster and field samples ...")
-
 			#----- Field index -------------------------------------
 			idx_fld  = np.arange(len(idx_cls),len(idx_cls)+n_field)
 			#------------------------------------------------------
@@ -816,13 +804,11 @@ class Mecayotl(object):
 			#-----------------------------------------------
 
 			#--------------- Write data ------------------------------------
-			print("Saving data ...")
 			with h5py.File(file_data, 'a') as hf:
 				hf.create_dataset('mu',         data=mu_data)
 				hf.create_dataset('sg',         data=sg_data)
 				hf.create_dataset('extra',      data=ex_data)
 				hf.create_dataset('idx_Field',  data=idx_fld)
-			print("Data correctly written")
 			#----------------------------------------------------------------
 			del idx_fld,mu_data,sg_data,ex_data
 
@@ -852,9 +838,13 @@ class Mecayotl(object):
 			os.system(cmd_cls)
 			#-----------------------------------------------------
 
-			#----- Compute probabilities ------------------------------
+			#------------------------------------------------------------
+			print(30*"-")
+			print("Computing probabilities of seed {0} ...".format(seed))
 			self.compute_probabilities(instance=instance,chunks=chunks)
-			#-----------------------------------------------------------
+			print(30*"-")
+			#------------------------------------------------------------
+
 
 	def find_probability_threshold(self,seeds,bins=4,prob_steps=1000,
 		covariate="g",metric="MCC",covariate_limits=None):
