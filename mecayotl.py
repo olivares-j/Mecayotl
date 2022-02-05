@@ -685,9 +685,29 @@ class Mecayotl(object):
 							seeds=range(1)):
 		columns    = [ obs for obs in self.observables \
 						if obs not in self.RHO]
+		local_seeds = seeds.copy()
+
+		#-------------- Check if data exists ----------------------
+		for seed in local_seeds:
+			#--------- Directory ---------------------------------
+			name_base = "/Synthetic_{0}/".format(seed)
+			dir_sim   = self.dir_main + name_base
+			file_data = self.file_data_base.format(name_base)
+			#----------------------------------------------------
+
+			if os.path.isfile(file_data):
+				with h5py.File(file_data, 'r') as hf:
+					if "mu" in hf.keys():
+						local_seeds.remove(seed)
+		#---------------------------------------------------------
+
+		#-------------------------
+		if len(local_seeds) == 0:
+			return
+		#-------------------------
 
 		#================= Cluster ==================================
-		for seed in seeds:
+		for seed in local_seeds:
 			print("Seed {0} ...".format(seed))
 			#--------- Directory ---------------------------------
 			name_base = "/Synthetic_{0}/".format(seed)
@@ -763,7 +783,7 @@ class Mecayotl(object):
 		del pc,mu,sg,ex,idx_field
 
 		#================= Cluster ==================================
-		for seed in seeds:
+		for seed in local_seeds:
 			print("Seed {0} ...".format(seed))
 			#--------- Directory ---------------------------------
 			name_base = "/Synthetic_{0}/".format(seed)
@@ -773,8 +793,6 @@ class Mecayotl(object):
 
 			#-------- Read cluster data -------------------
 			with h5py.File(file_data, 'r') as hf:
-				if "mu" in hf.keys():
-					continue
 				idx_cls = np.array(hf.get("idx_Cluster"))
 				mu_cls  = np.array(hf.get("mu_Cluster"))
 				sg_cls  = np.array(hf.get("sg_Cluster"))
@@ -804,7 +822,7 @@ class Mecayotl(object):
 			#----------------------------------------------------------------
 			del idx_fld,mu_data,sg_data,ex_data
 
-	def compute_probabilities_synthetic(self,seeds):
+	def compute_probabilities_synthetic(self,seeds,chunks=1):
 
 		for i,seed in enumerate(seeds):
 			#------------ File and direcotry ----------------------------
@@ -830,9 +848,9 @@ class Mecayotl(object):
 			os.system(cmd_cls)
 			#-----------------------------------------------------
 
-			#----- Compute probabilities -----------------
-			self.compute_probabilities(instance=instance)
-			#---------------------------------------------
+			#----- Compute probabilities ------------------------------
+			self.compute_probabilities(instance=instance,chunks=chunks)
+			#-----------------------------------------------------------
 
 	def find_probability_threshold(self,seeds,bins=4,prob_steps=1000,
 		covariate="g",metric="MCC",covariate_limits=None):
@@ -1096,13 +1114,13 @@ class Mecayotl(object):
 		#--------------------------------------------
 
 	def run_synthetic(self,seeds,probability_threshold=0.5,
-					n_cluster=int(1e5)):
+					n_cluster=int(1e5),chunks=1):
 		#----------- Synthetic data --------------------------------
 		self.generate_synthetic(n_cluster=n_cluster,
 							   seeds=seeds)
 		self.assemble_synthetic(probability_threshold=probability_threshold,
 							   seeds=seeds)
-		self.compute_probabilities_synthetic(seeds)
+		self.compute_probabilities_synthetic(seeds,chunks=chunks)
 		#----------------------------------------------------------
 
 	def members_to_kalkayotl(self,file_members,file_apogee,rv_sd_clipping=1.0,
