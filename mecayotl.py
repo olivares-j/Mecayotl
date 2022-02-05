@@ -689,7 +689,7 @@ class Mecayotl(object):
 		print(local_seeds)
 
 		#-------------- Check if data exists ----------------------
-		for seed in local_seeds:
+		for seed in seeds:
 			print(seed)
 			#--------- Directory ---------------------------------
 			name_base = "/Synthetic_{0}/".format(seed)
