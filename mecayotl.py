@@ -682,13 +682,15 @@ class Mecayotl(object):
 			#----------------------------------------------------------
 
 	def assemble_synthetic(self,probability_threshold=0.5,
-							seeds=range(1)):
+							seeds=[0]):
 		columns    = [ obs for obs in self.observables \
 						if obs not in self.RHO]
 		local_seeds = seeds.copy()
+		print(local_seeds)
 
 		#-------------- Check if data exists ----------------------
 		for seed in local_seeds:
+			print(seed)
 			#--------- Directory ---------------------------------
 			name_base = "/Synthetic_{0}/".format(seed)
 			dir_sim   = self.dir_main + name_base
@@ -698,7 +700,9 @@ class Mecayotl(object):
 			if os.path.isfile(file_data):
 				with h5py.File(file_data, 'r') as hf:
 					if "mu" in hf.keys():
+						print("Data present")
 						local_seeds.remove(seed)
+			print(local_seeds)
 		#---------------------------------------------------------
 
 		#-------------------------
