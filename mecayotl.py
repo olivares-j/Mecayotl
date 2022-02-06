@@ -913,16 +913,18 @@ class Mecayotl(object):
 		#------ Read probabilities --------------------------
 		with h5py.File(file_data, 'r') as hf:
 			idx_cls = np.array(hf.get("idx_Cluster"))
-			ids = np.array(hf.get("ids"))
+			ids = np.array(hf.get("ids"),dtype=np.uint64)
 			mu = np.array(hf.get("mu"))
 			ex = np.array(hf.get("extra"))
 			pc = np.array(hf.get(self.PRO))
 		#----------------------------------------------------
 
 		#-------- Join data --------------------------------------
-		names = sum([[self.IDS],self.OBS,self.EXT,[self.PRO]],[])
-		dt = np.hstack((ids[:,np.newaxis],mu,ex,pc[:,np.newaxis]))
+		names = sum([self.OBS,self.EXT],[])
+		dt = np.hstack((mu,ex))
 		df_cat = pd.DataFrame(data=dt,columns=names)
+		df_cat.insert(loc=0,column=self.PRO,value=pc)
+		df_cat.insert(loc=0,column=self.IDS,value=ids)
 		#---------------------------------------------------------
 
 		#----- Members ---------------
