@@ -215,7 +215,7 @@ class Mecayotl(object):
 		#------ Extract ---------------------------
 		id_data = df_cat.loc[:,self.IDS].to_numpy()
 		mu_data = df_cat.loc[:,self.OBS].to_numpy()
-		stds    = df_cat.loc[:,self.UNC].to_numpy()
+		sd_data = df_cat.loc[:,self.UNC].to_numpy()
 		cr_data = df_cat.loc[:,self.RHO].to_numpy()
 		ex_data = df_cat.loc[:,self.EXT].to_numpy()
 		#------------------------------------------
@@ -246,6 +246,7 @@ class Mecayotl(object):
 		with h5py.File(file_data, 'w') as hf:
 			hf.create_dataset('ids',        data=id_data)
 			hf.create_dataset('mu',         data=mu_data)
+			hf.create_dataset('sd',         data=sd_data)
 			hf.create_dataset('extra',      data=ex_data)
 			hf.create_dataset('mu_Cluster', data=mu_syn)
 			hf.create_dataset('sg_Cluster', data=sg_syn)
@@ -269,14 +270,14 @@ class Mecayotl(object):
 		#--------------------------------------------
 
 		#-------- sd to diag ------------------
-		sd_data = np.zeros((n_sources,6,6))
-		diag = np.einsum('...jj->...j',sd_data)
-		diag[:] = stds 
+		stds = np.zeros((n_sources,6,6))
+		diag = np.einsum('...jj->...j',stds)
+		diag[:] = sd_data
 		#--------------------------------------
 
 		one = np.eye(6)
 		pbar = tqdm(total=n_sources,miniters=10000)
-		for i,(sd,corr) in enumerate(zip(sd_data,cr_data)):
+		for i,(sd,corr) in enumerate(zip(stds,cr_data)):
 			#------- Correlation ---------
 			rho  = np.zeros((6,6))
 			rho[idx_tru] = corr
@@ -915,13 +916,14 @@ class Mecayotl(object):
 			idx_cls = np.array(hf.get("idx_Cluster"))
 			ids = np.array(hf.get("ids"),dtype=np.uint64)
 			mu = np.array(hf.get("mu"))
+			sd = np.array(hf.get("mu"))
 			ex = np.array(hf.get("extra"))
 			pc = np.array(hf.get(self.PRO))
 		#----------------------------------------------------
 
 		#-------- Join data --------------------------------------
-		names = sum([self.OBS,self.EXT],[])
-		dt = np.hstack((mu,ex))
+		names = sum([self.OBS,self.UNC,self.EXT],[])
+		dt = np.hstack((mu,sd,ex))
 		df_cat = pd.DataFrame(data=dt,columns=names)
 		df_cat.insert(loc=0,column=self.PRO,value=pc)
 		df_cat.insert(loc=0,column=self.IDS,value=ids)
