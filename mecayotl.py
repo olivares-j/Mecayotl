@@ -247,7 +247,8 @@ class Mecayotl(object):
 			hf.create_dataset('ids',        data=id_data)
 			hf.create_dataset('mu',         data=mu_data)
 			hf.create_dataset('sd',         data=sd_data)
-			hf.create_dataset('extra',      data=ex_data)
+			hf.create_dataset('cr',         data=cr_data)
+			hf.create_dataset('ex',         data=ex_data)
 			hf.create_dataset('mu_Cluster', data=mu_syn)
 			hf.create_dataset('sg_Cluster', data=sg_syn)
 			hf.create_dataset('mu_Field',   data=mu_field)
@@ -762,7 +763,7 @@ class Mecayotl(object):
 			pc = np.array(hf.get(self.PRO))
 			mu = np.array(hf.get("mu"))
 			sg = np.array(hf.get("sg"))
-			ex = np.array(hf.get("extra"))
+			ex = np.array(hf.get("ex"))
 		#------------------------------------------
 
 		#----------- Field sources ------------------------
@@ -808,7 +809,7 @@ class Mecayotl(object):
 			with h5py.File(file_data, 'a') as hf:
 				hf.create_dataset('mu',         data=mu_data)
 				hf.create_dataset('sg',         data=sg_data)
-				hf.create_dataset('extra',      data=ex_data)
+				hf.create_dataset('ex',         data=ex_data)
 				hf.create_dataset('idx_Field',  data=idx_fld)
 			#----------------------------------------------------------------
 			del idx_fld,mu_data,sg_data,ex_data
@@ -871,7 +872,7 @@ class Mecayotl(object):
 				idx_cls  = np.array(hf.get("idx_Cluster"))
 				idx_fld  = np.array(hf.get("idx_Field"))
 				pc = np.array(hf.get(self.PRO))
-				ex_data  = np.array(hf.get("extra"))
+				ex_data  = np.array(hf.get("ex"))
 			#-------------------------------------------------
 
 			#---------- Class ------------------------
@@ -916,14 +917,15 @@ class Mecayotl(object):
 			idx_cls = np.array(hf.get("idx_Cluster"))
 			ids = np.array(hf.get("ids"),dtype=np.uint64)
 			mu = np.array(hf.get("mu"))
-			sd = np.array(hf.get("mu"))
-			ex = np.array(hf.get("extra"))
+			sd = np.array(hf.get("sd"))
+			cr = np.array(hf.get("cr"))
+			ex = np.array(hf.get("ex"))
 			pc = np.array(hf.get(self.PRO))
 		#----------------------------------------------------
 
 		#-------- Join data --------------------------------------
-		names = sum([self.OBS,self.UNC,self.EXT],[])
-		dt = np.hstack((mu,sd,ex))
+		names = sum([self.OBS,self.UNC,self.RHO,self.EXT],[])
+		dt = np.hstack((mu,sd,cr,ex))
 		df_cat = pd.DataFrame(data=dt,columns=names)
 		df_cat.insert(loc=0,column=self.PRO,value=pc)
 		df_cat.insert(loc=0,column=self.IDS,value=ids)
@@ -1009,6 +1011,10 @@ class Mecayotl(object):
 		print("New: {0}".format(len(ids_new)))
 		#---------------------------------------------
 
+		#--------- Save candidates ------------------
+		df_cnd.to_csv(self.file_mem_data,index=False)
+		#--------------------------------------------
+
 		#----------- Color ---------------------------
 		df_mem["g_rp"] = df_mem["g"] - df_mem["rp"]
 		df_cnd["g_rp"] = df_cnd["g"] - df_cnd["rp"]
@@ -1020,10 +1026,6 @@ class Mecayotl(object):
 		df_cnd["G"] = df_cnd["g"] + 5.*( 1.0 - 
 						np.log10(1000./df_cnd["parallax"]))
 		#--------------------------------------------------
-
-		#--------- Save candidates ------------------
-		df_cnd.to_csv(self.file_mem_data,index=False)
-		#--------------------------------------------
 
 		#--------------------------------------------------------
 		pdf = PdfPages(filename=self.file_mem_plot)
