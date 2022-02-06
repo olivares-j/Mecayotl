@@ -357,7 +357,7 @@ class Mecayotl(object):
 
 
 	def select_best_model(self,case="Field",instance="Real",
-							minimum_nmin=100, criterion="BIC"):
+							minimum_nmin=100, criterion="AIC"):
 
 		file_comparison = self.file_comparison.format(instance,case)
 
