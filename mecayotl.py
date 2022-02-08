@@ -558,7 +558,8 @@ class Mecayotl(object):
 
 		del X
 			
-	def compute_probabilities(self,instance="Real",chunks=1):
+	def compute_probabilities(self,instance="Real",
+					chunks=1,replace=False,use_prior=False):
 
 		#---------- Libraries ------------------
 		self._initialize_mcmichael()
@@ -570,18 +571,28 @@ class Mecayotl(object):
 
 		file_data  = self.file_data_base.format(instance)
 
-		#------- Read data-------------------
+		#------- Read data----------------------------------
 		print("Reading data ...")
 		with h5py.File(file_data, 'r') as hf:
-			if self.PRO in hf.keys():
+			if self.PRO in hf.keys() and not replace:
 				return
 			mu = np.array(hf.get("mu"))
 			sg = np.array(hf.get("sg"))
-		#------------------------------------
+			idx_cls = np.array(hf.get("idx_Cluster"))
+		#---------------------------------------------------
 
 		#-- Dimensions --
 		N,_ = mu.shape
+		nc  = len(idx_cls)
+		nf  = N - nc
 		#----------------
+
+		#-----------------------------------------------------------
+		if use_prior:
+			ln_prior_ratio = np.log(np.float64(nf)/np.float64(nc))
+		else:
+			ln_prior_ratio = 0.0
+		#-----------------------------------------------------------
 	
 		#------- Chunks ----------------------------------------
 		# Compute partitioning of the input array of size N
@@ -635,7 +646,7 @@ class Mecayotl(object):
 
 		#------- Probability ------------------------------------------------
 		print("Computing probabilities ...")
-		pc = 1.0/(1.0+np.exp(llks[:,0]-llks[:,1]))
+		pc = 1.0/(1.0+np.exp(ln_prior_ratio + llks[:,0] - llks[:,1]))
 		del llks
 		assert np.all(np.isfinite(pc)), "Probabilities are not finite!"
 		assert np.all(pc >= 0.0), "Probabilities are negative!"
@@ -644,7 +655,9 @@ class Mecayotl(object):
 
 		#---------- Save probability -------------------------
 		print("Saving probabilities ...")
-		with h5py.File(file_data, 'a') as hf:
+		with h5py.File(file_data, 'a+') as hf:
+			if replace:
+				del hf[self.PRO]
 			hf.create_dataset(self.PRO,data=pc)
 		#-----------------------------------------------------------
 
@@ -814,7 +827,8 @@ class Mecayotl(object):
 			#----------------------------------------------------------------
 			del idx_fld,mu_data,sg_data,ex_data
 
-	def compute_probabilities_synthetic(self,seeds,chunks=1):
+	def compute_probabilities_synthetic(self,seeds,chunks=1,
+							replace=False,use_prior=False):
 
 		for i,seed in enumerate(seeds):
 			#------------ File and direcotry ----------------------------
@@ -843,7 +857,10 @@ class Mecayotl(object):
 			#------------------------------------------------------------
 			print(30*"-")
 			print("Computing probabilities of seed {0} ...".format(seed))
-			self.compute_probabilities(instance=instance,chunks=chunks)
+			self.compute_probabilities(instance=instance,
+									chunks=chunks,
+									replace=replace,
+									use_prior=use_prior)
 			print(30*"-")
 			#------------------------------------------------------------
 
@@ -1071,7 +1088,9 @@ class Mecayotl(object):
 
 	def run_real(self,file_catalogue,file_members,
 				n_cluster=int(1e5),n_field=int(1e5),
-				chunks=1,minimum_nmin=100):
+				chunks=1,minimum_nmin=100,
+				replace_probabilities=False,
+				use_prior_probabilities=False):
 
 		assert self.best_kal is not None, "You need to specify the best model from Kalkayotl!"
 
@@ -1109,18 +1128,28 @@ class Mecayotl(object):
 		self.plot_model(case="Cluster",instance="Real")
 		#--------------------------------------------------
 
-		#-------- Probabilities ---------------------
-		self.compute_probabilities(instance="Real",chunks=chunks)
-		#--------------------------------------------
+		#-------- Probabilities --------------------------------
+		self.compute_probabilities(instance="Real",
+							chunks=chunks,
+							replace=replace_probabilities,
+							use_prior=use_prior_probabilities)
+		#--------------------------------------------------------
 
-	def run_synthetic(self,seeds,probability_threshold=0.5,
-					n_cluster=int(1e5),chunks=1):
+	def run_synthetic(self,seeds,
+					probability_threshold=0.5,
+					n_cluster=int(1e5),chunks=1,
+					replace_probabilities=False,
+					use_prior_probabilities=False):
+
 		#----------- Synthetic data --------------------------------
 		self.generate_synthetic(n_cluster=n_cluster,
 							   seeds=seeds)
 		self.assemble_synthetic(probability_threshold=probability_threshold,
 							   seeds=seeds)
-		self.compute_probabilities_synthetic(seeds,chunks=chunks)
+		self.compute_probabilities_synthetic(seeds,
+						chunks=chunks,
+						replace=replace_probabilities,
+						use_prior=use_prior_probabilities)
 		#----------------------------------------------------------
 
 	def members_to_kalkayotl(self,file_members,file_apogee,rv_sd_clipping=1.0,
