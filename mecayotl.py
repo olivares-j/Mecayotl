@@ -653,9 +653,16 @@ class Mecayotl(object):
 		assert np.all(pc <= 1.0), "Probabilities are larger than one!"
 		#--------------------------------------------------------------------
 
+		#----------- Cluster probabilities --------------------------------
+		print("Cluster probabilities:")
+		print("Min:{0:1.4f}, Mean:{1:1.4f}, Median:{2:1.4f}, Max:{3:1.4f}".format(
+			np.min(pc[idx_cls]),np.mean(pc[idx_cls]),
+			np.median(pc[idx_cls]),np.max(pc[idx_cls])))
+		#------------------------------------------------------------------
+
 		#---------- Save probability -------------------------
 		print("Saving probabilities ...")
-		with h5py.File(file_data, 'a+') as hf:
+		with h5py.File(file_data, 'a') as hf:
 			if replace:
 				del hf[self.PRO]
 			hf.create_dataset(self.PRO,data=pc)
