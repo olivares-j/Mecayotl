@@ -359,7 +359,7 @@ class Mecayotl(object):
 
 
 	def select_best_model(self,case="Field",instance="Real",
-							minimum_nmin=100, criterion="BIC"):
+							minimum_nmin=100,criterion="BIC"):
 
 		file_comparison = self.file_comparison.format(instance,case)
 
@@ -1107,7 +1107,8 @@ class Mecayotl(object):
 				n_cluster=int(1e5),n_field=int(1e5),
 				chunks=1,minimum_nmin=100,
 				replace_probabilities=False,
-				use_prior_probabilities=False):
+				use_prior_probabilities=False,
+				best_model_criterion="AIC"):
 
 		assert self.best_kal is not None, "You need to specify the best model from Kalkayotl!"
 
@@ -1133,9 +1134,11 @@ class Mecayotl(object):
 		#------------- Select best models --------------------------
 		if "Real" not in self.best_gmm:
 			self.select_best_model(case="Field",instance="Real",
-									minimum_nmin=minimum_nmin)
+									minimum_nmin=minimum_nmin,
+									criterion=best_model_criterion)
 			self.select_best_model(case="Cluster",instance="Real",
-									minimum_nmin=minimum_nmin)
+									minimum_nmin=minimum_nmin,
+									citerion=best_model_criterion)
 			print("The best real GMM models are:")
 			print(self.best_gmm)
 		#-----------------------------------------------------------
