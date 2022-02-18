@@ -1138,7 +1138,7 @@ class Mecayotl(object):
 									criterion=best_model_criterion)
 			self.select_best_model(case="Cluster",instance="Real",
 									minimum_nmin=minimum_nmin,
-									citerion=best_model_criterion)
+									criterion=best_model_criterion)
 			print("The best real GMM models are:")
 			print(self.best_gmm)
 		#-----------------------------------------------------------
