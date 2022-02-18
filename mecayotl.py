@@ -359,7 +359,7 @@ class Mecayotl(object):
 
 
 	def select_best_model(self,case="Field",instance="Real",
-							minimum_nmin=100, criterion="AIC"):
+							minimum_nmin=100, criterion="BIC"):
 
 		file_comparison = self.file_comparison.format(instance,case)
 
@@ -887,6 +887,7 @@ class Mecayotl(object):
 
 		dfs = []
 		for seed in seeds:
+			print("Reading seed {0}".format(seed))
 			#------------ File ----------------------------
 			instance  = "Synthetic_{0}".format(seed)
 			file_data = self.file_data_base.format(instance)
@@ -918,19 +919,28 @@ class Mecayotl(object):
 			dfs.append(df)
 			#--------------
 
+			del df
+
 		print("Analyzing classifier quality ...")
 		clq = ClassifierQuality(file_data=dfs,
 								variate=self.PRO,
 								covariate=covariate,
 								covariate_limits=covariate_limits,
 								true_class="Cluster")
+		del dfs
+
+		print("Computing confusion matrices ...")
 		clq.confusion_matrix(bins=bins,
 							prob_steps=prob_steps,
 							metric=metric)
+
+		print("Plotting and saving quality measures ...")
 		clq.plots(file_plot=file_plot)
 		clq.save(file_tex=file_tex)
 
 		self.file_thresholds = file_thr
+
+		del clq
 
 	def plot_members(self,probability_threshold=None,instance="Real"):
 
