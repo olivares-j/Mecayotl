@@ -359,7 +359,7 @@ class Mecayotl(object):
 
 
 	def select_best_model(self,case="Field",instance="Real",
-							minimum_nmin=100,criterion="BIC"):
+							minimum_nmin=100,criterion="AIC"):
 
 		file_comparison = self.file_comparison.format(instance,case)
 
@@ -702,8 +702,7 @@ class Mecayotl(object):
 			del ama
 			#----------------------------------------------------------
 
-	def assemble_synthetic(self,probability_threshold=0.5,
-							seeds=[0]):
+	def assemble_synthetic(self,seeds=[0]):
 		columns    = [ obs for obs in self.observables \
 						if obs not in self.RHO]
 		local_seeds = seeds.copy()
@@ -780,15 +779,11 @@ class Mecayotl(object):
 
 		#------ Read probabilities ---------------
 		with h5py.File(file_data, 'r') as hf:
-			pc = np.array(hf.get(self.PRO))
 			mu = np.array(hf.get("mu"))
 			sg = np.array(hf.get("sg"))
 			ex = np.array(hf.get("ex"))
+			idx_field = np.array(hf.get("idx_Field"))
 		#------------------------------------------
-
-		#----------- Field sources ------------------------
-		idx_field = np.where(pc < probability_threshold)[0]
-		#--------------------------------------------------
 
 		print("Selecting field ...")
 		mu_fld  = mu[idx_field]
@@ -796,7 +791,7 @@ class Mecayotl(object):
 		ex_fld  = ex[idx_field]
 		n_field = len(idx_field)
 
-		del pc,mu,sg,ex,idx_field
+		del mu,sg,ex,idx_field
 
 		#================= Cluster ==================================
 		for seed in local_seeds:
@@ -1156,7 +1151,6 @@ class Mecayotl(object):
 		#--------------------------------------------------------
 
 	def run_synthetic(self,seeds,
-					probability_threshold=0.5,
 					n_cluster=int(1e5),chunks=1,
 					replace_probabilities=False,
 					use_prior_probabilities=False):
@@ -1164,8 +1158,7 @@ class Mecayotl(object):
 		#----------- Synthetic data --------------------------------
 		self.generate_synthetic(n_cluster=n_cluster,
 							   seeds=seeds)
-		self.assemble_synthetic(probability_threshold=probability_threshold,
-							   seeds=seeds)
+		self.assemble_synthetic(seeds=seeds)
 		self.compute_probabilities_synthetic(seeds,
 						chunks=chunks,
 						replace=replace_probabilities,
