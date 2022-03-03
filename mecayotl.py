@@ -867,8 +867,10 @@ class Mecayotl(object):
 			#------------------------------------------------------------
 
 
-	def find_probability_threshold(self,seeds,bins=4,prob_steps=1000,
-		covariate="g",metric="MCC",covariate_limits=None):
+	def find_probability_threshold(self,seeds,bins=4,
+		covariate="g",metric="MCC",covariate_limits=None,
+		plot_log_scale=False,
+		prob_steps={0.1:2,0.9:10,0.99:100,0.99999:100}):
 
 		#-------- Libraries -------------------
 		from Quality import ClassifierQuality
@@ -930,7 +932,7 @@ class Mecayotl(object):
 							metric=metric)
 
 		print("Plotting and saving quality measures ...")
-		clq.plots(file_plot=file_plot)
+		clq.plots(file_plot=file_plot,log_scale=plot_log_scale)
 		clq.save(file_tex=file_tex)
 
 		self.file_thresholds = file_thr
