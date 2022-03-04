@@ -947,7 +947,7 @@ class Mecayotl(object):
 
 		del clq
 
-	def plot_members(self,probability_threshold=None,instance="Real"):
+	def select_members(self,probability_threshold=None,instance="Real"):
 
 		file_data = self.file_data_base.format(instance)
 
@@ -1016,14 +1016,11 @@ class Mecayotl(object):
 					strategy = "All"
 				#------------------------------------------------
 
-				#----------- Temporal DF ---------
-				tmp = df_cat.iloc[idx].copy()
-				#----------------------------------
-
-				#------------- Members ----------------------------
-				tmp_mem = tmp[tmp[self.PRO] >= threshold].copy()
+				#------------- Members ---------------------
+				idx_mem = np.where(pc[idx] >= threshold)[0]
+				tmp_mem = df_cat.iloc[idx[idx_mem]].copy()
 				tmp_mem["Strategy"] = strategy
-				#-------------------------------------------------
+				#-------------------------------------------
 
 				#------------ Append -------------------------------------------
 				dfs.append(tmp_mem)
@@ -1032,7 +1029,7 @@ class Mecayotl(object):
 			#--------- Concatenate and extract -----
 			df = pd.concat(dfs)
 			df_cnd = df[df["Strategy"] != "All"].copy()
-			del df_cat
+			del df_cat,dfs,df
 			#-------------------------------------------
 		#-------------------------------------------------
 
@@ -1455,7 +1452,7 @@ if __name__ == "__main__":
 	#------------------------------------------------------
 
 	#------------- New members -----------------------------
-	mcy.plot_members(instance="Real")
+	mcy.select_members(instance="Real")
 	#-------------------------------------------------------
 
 	
