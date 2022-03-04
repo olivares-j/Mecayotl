@@ -870,8 +870,8 @@ class Mecayotl(object):
 	def find_probability_threshold(self,seeds,bins=4,
 		covariate="g",metric="MCC",covariate_limits=None,
 		plot_log_scale=False,
-		prob_steps={0.9:8,0.99:9,0.9999:99,0.999999:198},
-		min_prob=0.1):
+		prob_steps={0.99:9,0.9999:99,0.999999:198},
+		min_prob=0.9):
 
 		#-------- Libraries -------------------
 		from Quality import ClassifierQuality
