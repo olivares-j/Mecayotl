@@ -1173,7 +1173,7 @@ class Mecayotl(object):
 		#----------------------------------------------------------
 
 	def members_to_kalkayotl(self,file_members,file_apogee,rv_sd_clipping=1.0,
-			g_mag_limit=22.0,rv_error_limits=[0.1,100.]):
+			g_mag_limit=None,rv_error_limits=[0.1,100.]):
 
 		#----------- Miscelaneous -----------------
 		apogee_columns = ["RA","DEC","GAIAEDR3_SOURCE_ID","VHELIO_AVG","VSCATTER","VERR"]
@@ -1236,9 +1236,10 @@ class Mecayotl(object):
 
 		assert df.index.is_unique, "Index values are not unique. Remove duplicated sources!"
 
-		#------- Drop faint members -----------------
-		df = df.loc[df["g"] < g_mag_limit]
-		#--------------------------------------------
+		#------- Drop faint members ---------------
+		if g_mag_limit is not None:
+			df = df.loc[df["g"] < g_mag_limit]
+		#----------------------------------------------
 		#================================================
 
 		#============= X-Match ===================================
