@@ -8,6 +8,7 @@ import dill
 from scipy.stats import multivariate_normal
 from scipy.special import logsumexp
 from astropy.table import Table
+from astroquery.simbad import Simbad
 from astropy.coordinates import SkyCoord, search_around_sky,FK5
 from astropy import units
 
@@ -23,6 +24,11 @@ from matplotlib import lines as mlines
 from matplotlib.patches import Ellipse
 from matplotlib.colors import Normalize,TwoSlopeNorm
 from tqdm import tqdm
+
+#---------- Configure simbad --------------
+Simbad.remove_votable_fields('coordinates')
+Simbad.add_votable_fields('velocity')
+#------------------------------------------
 
 def get_principal(sigma,level=2.0):
     sd_x   = np.sqrt(sigma[0,0])
@@ -1218,7 +1224,7 @@ class Mecayotl(object):
 		#-----------------------------------------
 		#=======================================================
 
-		#============= Members =========================
+		#============= Load members =========================
 		#----- Load catalogue ------------------------
 		if '.csv' in file_members:
 			df = pd.read_csv(file_members)
@@ -1229,12 +1235,37 @@ class Mecayotl(object):
 		else:
 			sys.exit("Format file not recognized. Only CSV of FITS")
 		#-------------------------------------------------------------
+		#==============================================================
+
+		#=============== Simbad X-Match =================================
+		#----------- Query by name -----------------------------------
+		df["Name"] = df.apply(lambda x: "Gaia EDR3 {0}".format(
+								x["source_id"]),axis=1)
+
+		df_simbad = Simbad.query_objects(df["Name"]).to_pandas()
+		#-------------------------------------------------------------
+
+		#---------- Drop redshift values ---------------------------------
+		df_simbad.drop(index=df_simbad[df_simbad["RVZ_TYPE"] != "v"].index,
+						inplace=True)
+		#------------------------------------------------------------------
+
+		#------- Merge by original query number ---------
+		df_simbad.set_index("SCRIPT_NUMBER_ID",inplace=True)
+		df = df.merge(df_simbad,left_index=True,
+						right_index=True,how="left")
+		#-----------------------------------------------
+
+		df.rename(columns={
+					"RVZ_RADVEL":"simbad_radial_velocity",
+					"RVZ_ERROR":"simbad_radial_velocity_error"},
+					inplace=True)
+		#================================================================
 
 		#------- Set index --------------------
 		df.set_index("source_id",inplace=True)
-		#--------------------------------------
-
 		assert df.index.is_unique, "Index values are not unique. Remove duplicated sources!"
+		#--------------------------------------
 
 		#------- Drop faint members ---------------
 		if g_mag_limit is not None:
@@ -1242,22 +1273,27 @@ class Mecayotl(object):
 		#----------------------------------------------
 		#================================================
 
-		#============= X-Match ===================================
+		#============= X-Match APOGEE ===================================
 		#----------------- Merge ----------------------------------------
 		print("Merging with original catalogue ...")
 		df = df.merge(apogee,how="left",left_index=True,right_index=True,
 					validate="one_to_one",
 					suffixes=["_original","_apogee"],sort=False)
 		#----------------------------------------------------------------
+		#================================================================
 
-
-
-		#----------- Use APOGEE when available -----------------------------------------
-		df["radial_velocity"] = df.apply(lambda x: x["dr2_radial_velocity"] 
-								if np.isnan(x["apogee_rv"]) else x["apogee_rv"],
+		#----------- Use APOGEE or Gaia or Simbad when available -----------------------
+		df["radial_velocity"] = df.apply(lambda x: x["apogee_rv"]
+								if np.isfinite(x["apogee_rv"]) 
+								else x["dr2_radial_velocity"]
+								if np.isfinite(x["dr2_radial_velocity"]) 
+								else x["simbad_radial_velocity"],
 								axis=1)
-		df["radial_velocity_error"] = df.apply(lambda x: x["dr2_radial_velocity_error"] 
-								if np.isnan(x["apogee_rv"]) else x["apogee_rv_error"],
+		df["radial_velocity_error"] = df.apply(lambda x: x["apogee_rv_error"]  
+								if np.isfinite(x["apogee_rv"]) 
+								else x["dr2_radial_velocity_error"]
+								if np.isfinite(x["dr2_radial_velocity"]) 
+								else x["simbad_radial_velocity_error"],
 								axis=1)
 		#-------------------------------------------------------------------------------
 
