@@ -1179,7 +1179,7 @@ class Mecayotl(object):
 		#----------------------------------------------------------
 
 	def members_to_kalkayotl(self,file_members,file_apogee,rv_sd_clipping=1.0,
-			g_mag_limit=None,rv_error_limits=[0.1,100.]):
+			g_mag_limit=None,rv_error_limits=[0.01,50.]):
 
 		#----------- Miscelaneous -----------------
 		apogee_columns = ["RA","DEC","GAIAEDR3_SOURCE_ID","VHELIO_AVG","VSCATTER","VERR"]
@@ -1250,6 +1250,11 @@ class Mecayotl(object):
 						inplace=True)
 		#------------------------------------------------------------------
 
+		#---------- Drop rows with no rv uncertainty ----------------
+		df_simbad.dropna(how="any",subset=["RVZ_RADVEL","RVZ_ERROR"],
+						inplace=True)
+		#-------------------------------------------------------------
+
 		#------- Merge by original query number ---------
 		df_simbad.set_index("SCRIPT_NUMBER_ID",inplace=True)
 		df = df.merge(df_simbad,left_index=True,
@@ -1260,6 +1265,13 @@ class Mecayotl(object):
 					"RVZ_RADVEL":"simbad_radial_velocity",
 					"RVZ_ERROR":"simbad_radial_velocity_error"},
 					inplace=True)
+
+		#--- Assert that observed values have uncertainties and viceversa ----
+		nan_rvs = np.isnan(df["simbad_radial_velocity"].values)
+		nan_unc = np.isnan(df["simbad_radial_velocity_error"].values)
+		np.testing.assert_array_equal(nan_rvs,nan_unc,
+		err_msg="Simbad: There are discrepant missing uncertainties and values!")
+		#---------------------------------------------------------------------
 		#================================================================
 
 		#------- Set index --------------------
