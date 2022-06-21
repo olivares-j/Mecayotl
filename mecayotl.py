@@ -65,7 +65,7 @@ class Mecayotl(object):
 					zero_point=[0.,0.,-0.017,0.,0.,0.],
 					use_GPU=False,
 					rv_names={"rv":"dr3_radial_velocity",
-							  "rv_error":"dr3_radial_velocity_error"}
+							  "rv_error":"dr3_radial_velocity_error"},
 					seed=1234):
 
 		gaia_observables = ["source_id",
