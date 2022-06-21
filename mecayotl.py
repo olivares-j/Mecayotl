@@ -64,11 +64,13 @@ class Mecayotl(object):
 					cmap_features="viridis_r",
 					zero_point=[0.,0.,-0.017,0.,0.,0.],
 					use_GPU=False,
+					rv_names={"rv":"dr3_radial_velocity",
+							  "rv_error":"dr3_radial_velocity_error"}
 					seed=1234):
 
 		gaia_observables = ["source_id",
-		"ra","dec","parallax","pmra","pmdec","dr2_radial_velocity",
-		"ra_error","dec_error","parallax_error","pmra_error","pmdec_error","dr2_radial_velocity_error",
+		"ra","dec","parallax","pmra","pmdec",rv_names["rv"],
+		"ra_error","dec_error","parallax_error","pmra_error","pmdec_error",rv_names["rv_error"],
 		"ra_dec_corr","ra_parallax_corr","ra_pmra_corr","ra_pmdec_corr",
 		"dec_parallax_corr","dec_pmra_corr","dec_pmdec_corr",
 		"parallax_pmra_corr","parallax_pmdec_corr",
@@ -125,6 +127,7 @@ class Mecayotl(object):
 		self.photometric_args = photometric_args
 		self.use_GPU   = use_GPU
 		self.observables = gaia_observables
+		self.rv_names  = rv_names
 		#----------------------------------------------------------------------------------
 
 		#----- Creal real data direcotries -----
@@ -169,12 +172,12 @@ class Mecayotl(object):
 
 		#----- Rename columns ---------------------------
 		df_as.rename(columns={
-			ama.labels_true_as[0]:"ra",
-			ama.labels_true_as[1]:"dec",
-			ama.labels_true_as[2]:"parallax",
-			ama.labels_true_as[3]:"pmra",
-			ama.labels_true_as[4]:"pmdec",
-			ama.labels_true_as[5]:"dr2_radial_velocity"
+			ama.labels_true_as[0]:self.observables[1],#"ra",
+			ama.labels_true_as[1]:self.observables[2],#"dec",
+			ama.labels_true_as[2]:self.observables[3],#"parallax",
+			ama.labels_true_as[3]:self.observables[4],#"pmra",
+			ama.labels_true_as[4]:self.observables[5],#"pmdec",
+			ama.labels_true_as[5]:self.observables[6],#"dr3_radial_velocity"
 			},inplace=True)
 		#------------------------------------------------
 
@@ -1184,6 +1187,7 @@ class Mecayotl(object):
 		#----------- Miscelaneous -----------------
 		apogee_columns = ["RA","DEC","GAIAEDR3_SOURCE_ID","VHELIO_AVG","VSCATTER","VERR"]
 		rename_columns = {"VHELIO_AVG":"apogee_rv","GAIAEDR3_SOURCE_ID":"source_id"}
+		input_rv_names = {"rv":"mix_radial_velocity","rv_error":"mix_radial_velocity_error"}
 		#------------------------------------------
 
 		#=============== APOGEE ===============================
@@ -1297,14 +1301,14 @@ class Mecayotl(object):
 		#----------- Use APOGEE or Gaia or Simbad when available -----------------------
 		df["radial_velocity"] = df.apply(lambda x: x["apogee_rv"]
 								if np.isfinite(x["apogee_rv"]) 
-								else x["dr2_radial_velocity"]
-								if np.isfinite(x["dr2_radial_velocity"]) 
+								else x[input_rv_names["rv"]]
+								if np.isfinite(x[input_rv_names["rv"]]) 
 								else x["simbad_radial_velocity"],
 								axis=1)
 		df["radial_velocity_error"] = df.apply(lambda x: x["apogee_rv_error"]  
 								if np.isfinite(x["apogee_rv"]) 
-								else x["dr2_radial_velocity_error"]
-								if np.isfinite(x["dr2_radial_velocity"]) 
+								else x[input_rv_names["rv_error"]]
+								if np.isfinite(x[input_rv_names["rv_error"]]) 
 								else x["simbad_radial_velocity_error"],
 								axis=1)
 		#-------------------------------------------------------------------------------
