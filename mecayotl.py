@@ -1187,7 +1187,7 @@ class Mecayotl(object):
 		#----------- Miscelaneous -----------------
 		apogee_columns = ["RA","DEC","GAIAEDR3_SOURCE_ID","VHELIO_AVG","VSCATTER","VERR"]
 		rename_columns = {"VHELIO_AVG":"apogee_rv","GAIAEDR3_SOURCE_ID":"source_id"}
-		input_rv_names = {"rv":"mix_radial_velocity","rv_error":"mix_radial_velocity_error"}
+		input_rv_names = {"rv":"dr3_radial_velocity","rv_error":"dr3_radial_velocity_error"}
 		#------------------------------------------
 
 		#=============== APOGEE ===============================
@@ -1244,7 +1244,7 @@ class Mecayotl(object):
 		#=============== Simbad X-Match =================================
 		#----------- Query by name -----------------------------------
 		df["Name"] = df.apply(lambda x: "Gaia EDR3 {0}".format(
-								x["source_id"]),axis=1)
+								np.int_(x["source_id"])),axis=1)
 
 		df_simbad = Simbad.query_objects(df["Name"]).to_pandas()
 		#-------------------------------------------------------------
