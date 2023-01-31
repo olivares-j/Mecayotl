@@ -1366,17 +1366,17 @@ class Mecayotl(object):
 
 		#============== Prior ===============================================
 		list_of_prior = [
-			{"type":"Gaussian",
-				"parameters":{"location":None,"scale":None},
-				"hyper_parameters":{
-									"alpha":None,
-									"beta":50.0,
-									"gamma":None,
-									"delta":None,
-									"eta":None
-									},
-				"parametrization":"central",
-			},
+			# {"type":"Gaussian",
+			# 	"parameters":{"location":None,"scale":None},
+			# 	"hyper_parameters":{
+			# 						"alpha":None,
+			# 						"beta":50.0,
+			# 						"gamma":None,
+			# 						"delta":None,
+			# 						"eta":None
+			# 						},
+			# 	"parametrization":"central",
+			# },
 
 			{"type":"CGMM",      
 				"parameters":{"location":None,"scale":None,"weights":None},
@@ -1414,7 +1414,7 @@ class Mecayotl(object):
 							dir_out=dir_prior,
 							zero_point=self.zero_point,
 							indep_measures=False,
-							reference_system="ICRS")
+							reference_system="Galactic")
 
 			#-------- Load the data set --------------------
 			# It will use the Gaia column names by default.
