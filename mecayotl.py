@@ -1388,7 +1388,9 @@ class Mecayotl(object):
 									"eta":None,
 									"n_components":gmm_n
 									},
+				"field_sd":None,
 				"parametrization":"central",
+				"velocity_model":"joint",
 			},
 			]
 		#====================================================================
@@ -1425,7 +1427,9 @@ class Mecayotl(object):
 					  parameters=prior["parameters"],
 					  hyper_parameters=prior["hyper_parameters"],
 					  transformation="pc",
-					  parametrization=prior["parametrization"])
+					  parametrization=prior["parametrization"],
+					  field_sd=prior["field_sd"],
+					  velocity_model=prior["velocity_model"])
 
 			kal.run(sample_iters=sample_iters,
 					tuning_iters=tuning_iters,
