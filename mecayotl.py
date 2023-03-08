@@ -1181,8 +1181,11 @@ class Mecayotl(object):
 						use_prior=use_prior_probabilities)
 		#----------------------------------------------------------
 
-	def members_to_kalkayotl(self,file_members,file_apogee,rv_sd_clipping=1.0,
-			g_mag_limit=None,rv_error_limits=[0.01,50.]):
+	def members_to_kalkayotl(self,file_members,file_apogee,
+			g_mag_limit=None,
+			rv_error_limits=[0.01,50.], # Bounds for rv error
+			ruwe_threshold=1.4,         # Remove stars with higher RUWE
+			rv_sd_clipping=1.0):        # Remove outliers
 
 		#----------- Miscelaneous -----------------
 		apogee_columns = ["RA","DEC","GAIAEDR3_SOURCE_ID","VHELIO_AVG","VSCATTER","VERR"]
@@ -1332,7 +1335,14 @@ class Mecayotl(object):
 		df.loc[condition,"radial_velocity_error"]  = np.nan
 		#-------------------------------------------------------------------------
 
-		#---------- Binaries --------------------------------------------------------
+		#------------- Binaries -------------------------------
+		condition = df.loc[:,"ruwe"] > ruwe_threshold
+		df.loc[condition,"radial_velocity"] = np.nan
+		df.loc[condition,"radial_velocity_error"]  = np.nan
+		print("Binaries: {0}".format(sum(condition)))
+		#-----------------------------------------------------
+
+		#---------- Outliers --------------------------------------------------------
 		mu_rv = np.nanmean(df["radial_velocity"])
 		sd_rv = np.nanstd(df["radial_velocity"])
 		print("Radial velocity: {0:2.1f} +/- {1:2.1f} km/s".format(mu_rv,sd_rv))
@@ -1340,7 +1350,7 @@ class Mecayotl(object):
 		condition = maha_dst > rv_sd_clipping
 		df.loc[condition,"radial_velocity"] = np.nan
 		df.loc[condition,"radial_velocity_error"]  = np.nan
-		print("Binaries/outliers: {0}".format(sum(condition)))
+		print("Outliers: {0}".format(sum(condition)))
 		#----------------------------------------------------------------------------
 
 		print("Saving file ...")
