@@ -708,7 +708,8 @@ class Mecayotl(object):
 			ama = Amasijo(photometric_args=self.photometric_args,
 						  kalkayotl_file=self.file_mod_kal.format(self.best_kal),
 						  seed=seed)
-			ama.generate_cluster(file_smp,n_stars=n_cluster)
+			ama.generate_cluster(file_smp,n_stars=n_cluster,
+				angular_correlation=None)
 			ama.plot_cluster(file_plot=file_smp.replace(".csv",".pdf"))
 			del ama
 			#----------------------------------------------------------
