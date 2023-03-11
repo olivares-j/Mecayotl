@@ -709,7 +709,7 @@ class Mecayotl(object):
 						  kalkayotl_file=self.file_mod_kal.format(self.best_kal),
 						  seed=seed)
 			ama.generate_cluster(file_smp,n_stars=n_cluster,
-				angular_correlation=None)
+				angular_correlations=None)
 			ama.plot_cluster(file_plot=file_smp.replace(".csv",".pdf"))
 			del ama
 			#----------------------------------------------------------
