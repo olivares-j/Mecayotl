@@ -315,7 +315,8 @@ class Mecayotl(object):
 		del sg_data,sg_field
 		print("Data correctly assembled")
 
-	def infer_models(self,case="Field",instance="Real"):
+	def infer_models(self,case="Field",instance="Real",
+					tolerance=1e-5,init_min_det=1e-2):
 
 		#---------- Libraries ------------------
 		self._initialize_mcmichael()
@@ -349,7 +350,8 @@ class Mecayotl(object):
 			print("Inferring model with {0} components.".format(n_components))
 			gmm = GaussianMixture(dimension=6,n_components=n_components)
 			gmm.setup(X,uncertainty=U)
-			gmm.fit(random_state=self.random_state)
+			gmm.fit(tol=tolerance,init_min_det=init_min_det,
+				random_state=self.random_state)
 			#--------------------------------------------------------------------
 
 			#------- Write --------------------------------
