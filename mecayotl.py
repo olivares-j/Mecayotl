@@ -79,7 +79,7 @@ class Mecayotl(object):
 
 		#------ Set Seed -----------------
 		np.random.seed(seed=seed)
-		self.random_state = np.random.RandomState(seed=seed)
+		self.random_state = seed#np.random.RandomState(seed=seed)
 		self.seed = seed
 		#----------------------------------------------------
 
@@ -1459,63 +1459,76 @@ class Mecayotl(object):
 
 if __name__ == "__main__":
 	#----------------- Directories ------------------------
-	dir_repos= "/home/jolivares/Repos/"
-	dir_main = "/home/jolivares/Repos/Mecayotl/Test/"
-	dir_cats = "/home/jolivares/Repos/Mecayotl/Test/"
+	dir_repos = "/home/jolivares/Repos/"
+	dir_cats  = "/home/jolivares/OCs/TWH/Mecayotl/catalogues/"
+	dir_main  = "/home/jolivares/OCs/TWH/Mecayotl/runs/iter_0/"
 	#-------------------------------------------------------
 
 	#----------- Files --------------------------------------------
-	file_members = dir_main + "members_Furnkranz+2019.fits"
-	file_apogee = "/home/jolivares/Cumulos/APOGEE/allStar-dr17-synspec_rev1.fits"
-	file_real_catalogue  = dir_cats + "ComaBer.fits"
-	file_synth_catalogue = dir_cats + "ComaBer_simulation.fits"
+	file_apogee    = "/home/jolivares/OCs/APOGEE/allStar-dr17-synspec_rev1.fits"
+	file_members   = dir_cats + "members_Nuria_GDR3.csv"
+	file_catalogue = dir_cats + "TWH_SNR3.fits"
 	#--------------------------------------------------------------
 
 	#----- Miscellaneous ------------------------------------------------
-	seeds = range(10)
-	bins  = 2
+	seeds = [0,1,2,3,4,5,6,7,8,9]
+	bins  = [2.0,6.0,8.0,10.0,12.0,14.0,16.0,18.0,20.0]
+	covariate_limits = [2.0,22.0]
 	photometric_args = {
-	"log_age": 8.9,    
+	"log_age": 7.0,    
 	"metallicity":0.012,
 	"Av": 0.0,         
-	"mass_limits":[0.1,2.5], 
-	"bands":["V","I","G","BP","RP"]
+	"mass_limits":[0.01,2.5], 
+	"bands":["V","I","G","BP","RP"],
+	"mass_prior":"Uniform"
 	}
 	#---------------------------------------------------------------------
 	
 
 	mcy = Mecayotl(dir_main=dir_main,
-				   photometric_args=photometric_args,
-				   nc_cluster=range(2,10),
-				   nc_field=range(2,10),
-				   path_amasijo=dir_repos+"Amasijo/",
-				   path_mcmichael=dir_repos+"McMichael/",
-				   seed=1234)
+			   photometric_args=photometric_args,
+			   nc_cluster=range(2,10,1),
+			   nc_field=range(2,10,1),
+			   use_GPU=False,
+			   path_amasijo=dir_repos+"Amasijo/",
+			   path_mcmichael=dir_repos+"McMichael/",
+			   path_kalkayotl=dir_repos+"Kalkayotl/",
+			   seed=12345)
 
 	#----------- Kalkayotl ------------------------------
-	mcy.members_to_kalkayotl(file_members=file_members,
-							file_apogee=file_apogee,
-							rv_sd_clipping=1.0,
-							g_mag_limit=18.0,
-							rv_error_limits=[0.1,100.])
-	mcy.run_kalkayotl()
+	# mcy.members_to_kalkayotl(file_members=file_members,
+	# 					file_apogee=file_apogee,
+	# 					g_mag_limit=22.0,
+	# 					rv_error_limits=[0.1,2.],
+	# 					ruwe_threshold=1.4,
+	# 					rv_sd_clipping=1.0)
+	# mcy.run_kalkayotl()
 	mcy.best_kal = "Gaussian"
 	#-----------------------------------------------------
 
 	#--------------- Real -------------------------------
-	mcy.run_real(file_catalogue=file_real_catalogue,
-				file_members=file_members,
-				n_samples=1000,
-				minimum_nmin=0,
-				chunks=1)
-	mcy.best_gmm = {'Real': {'Field': 3, 'Cluster': 2}}
+	mcy.run_real(file_catalogue=file_catalogue,
+			file_members=file_members,
+			n_cluster=int(1e3),
+			n_field=int(1e3),
+			chunks=1,
+			minimum_nmin=10,
+			best_model_criterion="AIC",
+			replace_probabilities=False,
+			use_prior_probabilities=False)
+	mcy.best_gmm = {'Real': {'Field': 4, 'Cluster': 4}}
 	#----------------------------------------------------
 
 	#---------- Synthetic -------------------------------
 	mcy.run_synthetic(seeds=seeds,
-					  file_catalogue=file_synth_catalogue,
-					  n_field=1000)
-	mcy.find_probability_threshold(seeds=seeds,bins=bins)
+			n_cluster=int(1e3),
+			chunks=10,
+			replace_probabilities=False,
+			use_prior_probabilities=False)
+
+	mcy.find_probability_threshold(seeds=seeds,bins=bins,
+					covariate_limits=covariate_limits,
+					plot_log_scale=True)
 	#------------------------------------------------------
 
 	#------------- New members -----------------------------
