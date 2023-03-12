@@ -66,6 +66,7 @@ class Mecayotl(object):
 					use_GPU=False,
 					rv_names={"rv":"dr3_radial_velocity",
 							  "rv_error":"dr3_radial_velocity_error"},
+					reference_system="Galactic",
 					seed=1234):
 
 		gaia_observables = ["source_id",
@@ -128,6 +129,7 @@ class Mecayotl(object):
 		self.use_GPU   = use_GPU
 		self.observables = gaia_observables
 		self.rv_names  = rv_names
+		self.reference_system = reference_system
 		#----------------------------------------------------------------------------------
 
 		#----- Creal real data direcotries -----
@@ -161,8 +163,11 @@ class Mecayotl(object):
 		file_smp  = self.file_smp_base.format(instance)
 
 		#----------- Generate true astrometry ---------------
-		ama = Amasijo(kalkayotl_file=file_kalkayotl,
+		ama = Amasijo(kalkayotl_args={
+						"file":file_kalkayotl,
+						"velocity_model":"joint"},
 					  photometric_args=self.photometric_args,
+					  reference_system=self.reference_system,
 					  seed=self.seed)
 
 		X = ama._generate_phase_space(n_stars=n_cluster)
@@ -1429,7 +1434,7 @@ class Mecayotl(object):
 							dir_out=dir_prior,
 							zero_point=self.zero_point,
 							indep_measures=False,
-							reference_system="Galactic")
+							reference_system=self.reference_system)
 
 			#-------- Load the data set --------------------
 			# It will use the Gaia column names by default.
@@ -1490,8 +1495,8 @@ if __name__ == "__main__":
 
 	mcy = Mecayotl(dir_main=dir_main,
 			   photometric_args=photometric_args,
-			   nc_cluster=range(2,10,1),
-			   nc_field=range(2,10,1),
+			   nc_cluster=[10],
+			   nc_field=[10],
 			   use_GPU=False,
 			   path_amasijo=dir_repos+"Amasijo/",
 			   path_mcmichael=dir_repos+"McMichael/",
