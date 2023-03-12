@@ -711,7 +711,9 @@ class Mecayotl(object):
 
 			#---------- Generate cluster ---------------------------
 			ama = Amasijo(photometric_args=self.photometric_args,
-						  kalkayotl_file=self.file_mod_kal.format(self.best_kal),
+						  kalkayotl_args={
+						  "file":self.file_mod_kal.format(self.best_kal),
+						  "velocity_model":"joint"},
 						  seed=seed)
 			ama.generate_cluster(file_smp,n_stars=n_cluster,
 				angular_correlations=None)
@@ -1501,6 +1503,7 @@ if __name__ == "__main__":
 			   path_amasijo=dir_repos+"Amasijo/",
 			   path_mcmichael=dir_repos+"McMichael/",
 			   path_kalkayotl=dir_repos+"Kalkayotl/",
+			   reference_system="Galactic",
 			   seed=12345)
 
 	#----------- Kalkayotl ------------------------------
@@ -1515,16 +1518,16 @@ if __name__ == "__main__":
 	#-----------------------------------------------------
 
 	#--------------- Real -------------------------------
-	mcy.run_real(file_catalogue=file_catalogue,
-			file_members=file_members,
-			n_cluster=int(1e3),
-			n_field=int(1e3),
-			chunks=1,
-			minimum_nmin=10,
-			best_model_criterion="AIC",
-			replace_probabilities=False,
-			use_prior_probabilities=False)
-	mcy.best_gmm = {'Real': {'Field': 4, 'Cluster': 4}}
+	# mcy.run_real(file_catalogue=file_catalogue,
+	# 		file_members=file_members,
+	# 		n_cluster=int(1e3),
+	# 		n_field=int(1e3),
+	# 		chunks=1,
+	# 		minimum_nmin=10,
+	# 		best_model_criterion="AIC",
+	# 		replace_probabilities=False,
+	# 		use_prior_probabilities=False)
+	mcy.best_gmm = {'Real': {'Field': 10, 'Cluster': 10}}
 	#----------------------------------------------------
 
 	#---------- Synthetic -------------------------------
