@@ -1492,7 +1492,7 @@ class Mecayotl(object):
 
 		print(30*"="+" START "+30*"=")
 		for iteration in range(0,iterations):
-			print("Iteration {0}".format(iteration))
+			print(30*"-"+" Iteration {0} ".format(iteration)+30*"-")
 
 			if os.path.exists(base_members.format(iteration)):
 				continue
