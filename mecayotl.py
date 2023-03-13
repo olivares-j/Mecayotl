@@ -1474,7 +1474,7 @@ class Mecayotl(object):
 			kal.save_statistics(hdi_prob=hdi_prob)
 
 	def run(self,dir_base,iterations,model,
-		synthetic_seeds=[0,1,2,3,4],#,5,6,7,8,9],
+		synthetic_seeds=[0,1,2,3,4,5,6,7,8,9],
 		bins = [4.0,6.0,8.0,10.0,12.0,14.0,16.0,18.0,20.0],
 		covariate_limits = [4.0,22.0],
 		kalkayotl_mag_limit=22.0,
