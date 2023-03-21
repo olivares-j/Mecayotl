@@ -1209,7 +1209,9 @@ class Mecayotl(object):
 			g_mag_limit=None,
 			rv_error_limits=[0.01,50.], # Bounds for rv error
 			ruwe_threshold=1.4,         # Remove stars with higher RUWE
-			rv_sd_clipping=1.0):        # Remove outliers
+			rv_sd_clipping=1.0,         # Remove outliers
+			allow_rv_missing = True     # Allow missing values
+			): 
 
 		#=============== APOGEE ===============================
 		#----- Load APOGEE ----------------------------------
@@ -1371,6 +1373,12 @@ class Mecayotl(object):
 		print("Outliers: {0}".format(sum(condition)))
 		#----------------------------------------------------------------------------
 
+		#------------------------ Allow RV missing ------------------------
+		if not allow_rv_missing:
+			df.dropna(subset=["radial_velocity","radial_velocity_error"],
+				inplace=True)
+		#------------------------------------------------------------------
+
 		print("Saving file ...")
 		#------- Save as csv ---------
 		df.to_csv(self.file_mem_kal)
@@ -1481,6 +1489,7 @@ class Mecayotl(object):
 		kalkayotl_rvs_error_limits=[0.1,2.0],
 		kalkayotl_ruwe_limit=1.4,
 		kalkayotl_rvs_sigma_clipping=3.0,
+		kalkayotl_allow_rv_missing=False,
 		n_samples_real=int(1e3),
 		n_samples_syn=int(1e3),
 		chunks=10,
@@ -1521,7 +1530,8 @@ class Mecayotl(object):
 					g_mag_limit=kalkayotl_mag_limit,
 					rv_error_limits=kalkayotl_rvs_error_limits,
 					ruwe_threshold=kalkayotl_ruwe_limit,
-					rv_sd_clipping=kalkayotl_rvs_sigma_clipping)
+					rv_sd_clipping=kalkayotl_rvs_sigma_clipping,
+					allow_rv_missing=kalkayotl_allow_rv_missing)
 
 			# self.run_kalkayotl(models=model)
 			self.best_kal = model
