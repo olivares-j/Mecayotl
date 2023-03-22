@@ -1391,6 +1391,8 @@ class Mecayotl(object):
 		tuning_iters = 3000,
 		sample_iters = 1000,
 		target_accept = 0.95,
+		chains=2,cores=2,
+		nuts_sampler="pymc",
 		models = ["Gaussian","CGMM"],
 		hdi_prob = 0.95
 		):
@@ -1471,9 +1473,8 @@ class Mecayotl(object):
 			kal.run(sample_iters=sample_iters,
 					tuning_iters=tuning_iters,
 					target_accept=target_accept,
-					optimize=optimize,
-					chains=4,cores=4,
-					nuts_sampler="numpyro")
+					chains=chains,cores=cores,
+					nuts_sampler=nuts_sampler)
 
 			kal.load_trace()
 			kal.convergence()
