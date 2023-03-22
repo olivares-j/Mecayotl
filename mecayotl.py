@@ -133,8 +133,8 @@ class Mecayotl(object):
 
 		#----- Kalkayotl--------------------------
 		sys.path.append(self.path_kalkayotl)
-		# from kalkayotl.inference import Inference
-		# self.Inference = Inference
+		from kalkayotl.inference import Inference
+		self.Inference = Inference
 		#-----------------------------------------
 
 		#-------- McMichael ----------------------------------------------------------------
@@ -1533,7 +1533,7 @@ class Mecayotl(object):
 					rv_sd_clipping=kalkayotl_rvs_sigma_clipping,
 					allow_rv_missing=kalkayotl_allow_rv_missing)
 
-			# self.run_kalkayotl(models=model)
+			self.run_kalkayotl(models=model)
 			self.best_kal = model
 			#-----------------------------------------------------
 
