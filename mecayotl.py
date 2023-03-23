@@ -1403,7 +1403,7 @@ class Mecayotl(object):
 				"parameters":{"location":None,"scale":None},
 				"hyper_parameters":{
 									"alpha":None,
-									"beta":50.0,
+									"beta":None,
 									"gamma":None,
 									"delta":None,
 									"eta":None
@@ -1419,7 +1419,7 @@ class Mecayotl(object):
 				"parameters":{"location":None,"scale":None,"weights":None},
 				"hyper_parameters":{
 									"alpha":None,
-									"beta":50.0, 
+									"beta":None, 
 									"gamma":None,
 									"delta":np.repeat(1,n_components),
 									"eta":None,
@@ -1479,6 +1479,7 @@ class Mecayotl(object):
 			kal.load_trace()
 			kal.convergence()
 			kal.plot_chains()
+			kal.plot_prior_check()
 			kal.plot_model(chain=1)
 			kal.save_statistics(hdi_prob=hdi_prob)
 
