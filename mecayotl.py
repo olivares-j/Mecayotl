@@ -240,6 +240,16 @@ class Mecayotl(object):
 		del cat
 		n_sources = df_cat.shape[0]
 		df_cat = df_cat[self.observables]
+
+		valid_cat = np.full(len(df_cat),fill_value=True)
+		for obs in self.OBS:
+			valid_cat &= (df_cat[obs] > self.limits_observables[obs]["inf"]) |\
+						 (np.isnan(df_cat[obs]))
+			valid_cat &= (df_cat[obs] < self.limits_observables[obs]["sup"]) |\
+						 (np.isnan(df_cat[obs]))
+
+		df_cat = df_cat.loc[valid_cat] 
+		print("There are {0} valid catalogue sources".format(len(df_cat)))
 		#-----------------------------------------------
 
 		#--------- Members ------------------------------------------
@@ -257,15 +267,16 @@ class Mecayotl(object):
 
 		#----------- Synthetic -------------------------------------------
 		print("Reading synthetic ...")
-		mu_syn = pd.read_csv(file_smp,usecols=self.OBS)
-		valid_syn = np.full(len(mu_syn),fill_value=True)
+		df_syn = pd.read_csv(file_smp,usecols=self.OBS)
+		valid_syn = np.full(len(df_syn),fill_value=True)
 		for obs in self.OBS:
-			valid_syn &= mu_syn[obs] > self.limits_observables[obs]["inf"]
-			valid_syn &= mu_syn[obs] < self.limits_observables[obs]["sup"]
+			valid_syn &= df_syn[obs] > self.limits_observables[obs]["inf"]
+			valid_syn &= df_syn[obs] < self.limits_observables[obs]["sup"]
 
-		mu_syn = mu_syn.loc[valid_syn] 
+		mu_syn = df_syn.loc[valid_syn] 
 		sg_syn = np.zeros((len(mu_syn),6,6))
 		print("There are {0} valid synthetic sources".format(len(mu_syn)))
+		del df_syn
 		#-----------------------------------------------------------------
 
 		print("Assembling data ...")
