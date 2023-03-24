@@ -120,7 +120,17 @@ class Mecayotl(object):
 		self.rv_names  = rv_names
 		self.reference_system = reference_system
 
-		#----------- APOGEE -----------------
+		#------------------ Limits --------------------------------------------
+		self.limits_observables = {
+			"ra":{"inf":-np.inf,"sup":np.inf},
+			"dec":{"inf":-np.inf,"sup":np.inf},
+			"pmra":{"inf":-400.0,"sup":400.0},
+			"pmdec":{"inf":-400.0,"sup":400.0},
+			"parallax":{"inf":-np.inf,"sup":np.inf},
+			rv_names["rv"]:{"inf":-100.0,"sup":100.0}
+			}
+
+		#----------- APOGEE -----------------------------------------------------------------
 		self.apogee_columns = ["RA","DEC","GAIAEDR3_SOURCE_ID","VHELIO_AVG","VSCATTER","VERR"]
 		self.apogee_rename = {"VHELIO_AVG":"apogee_rv","GAIAEDR3_SOURCE_ID":"source_id"}
 		#----------------------------------------------------------------------------------
@@ -247,8 +257,14 @@ class Mecayotl(object):
 
 		#----------- Synthetic --------------------------------------
 		print("Reading synthetic ...")
-		mu_syn    = pd.read_csv(file_smp,usecols=self.OBS).to_numpy()
-		sg_syn    = np.zeros((len(mu_syn),6,6))
+		mu_syn = pd.read_csv(file_smp,usecols=self.OBS)
+		valid_syn = np.full(len(mu_syn),fill_value=True)
+		for obs in self.OBS:
+			valid_syn &= mu_syn[obs] > self.limits_observables[obs]["inf"]
+			valid_syn &= mu_syn[obs] < self.limits_observables[obs]["sup"]
+
+		mu_syn = mu_syn.loc[valid_syn] 
+		sg_syn = np.zeros((len(mu_syn),6,6))
 		#-------------------------------------------------------------
 
 		print("Assembling data ...")
@@ -1582,7 +1598,7 @@ if __name__ == "__main__":
 	#----------------- Directories ------------------------
 	dir_repos = "/home/jolivares/Repos/"
 	dir_cats  = "/home/jolivares/OCs/TWH/Mecayotl/catalogues/"
-	dir_base  = "/home/jolivares/OCs/TWH/Mecayotl/runs/a"
+	dir_base  = "/home/jolivares/OCs/TWH/Mecayotl/"
 	#-------------------------------------------------------
 
 	#----------- Files --------------------------------------------
