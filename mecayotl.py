@@ -126,8 +126,8 @@ class Mecayotl(object):
 			"dec":{"inf":-np.inf,"sup":np.inf},
 			"pmra":{"inf":-400.0,"sup":400.0},
 			"pmdec":{"inf":-400.0,"sup":400.0},
-			"parallax":{"inf":-np.inf,"sup":np.inf},
-			rv_names["rv"]:{"inf":-100.0,"sup":100.0}
+			"parallax":{"inf":-100,"sup":100},
+			rv_names["rv"]:{"inf":-200.0,"sup":200.0}
 			}
 
 		#----------- APOGEE -----------------------------------------------------------------
@@ -255,7 +255,7 @@ class Mecayotl(object):
 		df_mem = df_mem[self.observables]
 		#-------------------------------------------------------------
 
-		#----------- Synthetic --------------------------------------
+		#----------- Synthetic -------------------------------------------
 		print("Reading synthetic ...")
 		mu_syn = pd.read_csv(file_smp,usecols=self.OBS)
 		valid_syn = np.full(len(mu_syn),fill_value=True)
@@ -265,7 +265,8 @@ class Mecayotl(object):
 
 		mu_syn = mu_syn.loc[valid_syn] 
 		sg_syn = np.zeros((len(mu_syn),6,6))
-		#-------------------------------------------------------------
+		print("There are {0} valid synthetic sources".format(len(mu_syn)))
+		#-----------------------------------------------------------------
 
 		print("Assembling data ...")
 
