@@ -758,7 +758,7 @@ class Mecayotl(object):
 						  seed=seed)
 			ama.generate_cluster(file_smp,n_stars=n_cluster,
 				angular_correlations=None)
-			ama.plot_cluster(file_plot=file_smp.replace(".csv",".pdf"))
+			# ama.plot_cluster(file_plot=file_smp.replace(".csv",".pdf"))
 			del ama
 			#----------------------------------------------------------
 
