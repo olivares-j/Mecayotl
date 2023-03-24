@@ -1495,6 +1495,8 @@ class Mecayotl(object):
 		n_samples_real=int(1e3),
 		n_samples_syn=int(1e3),
 		chunks=10,
+		minimum_nmin=100,
+		best_model_criterion="AIC",
 		replace_probabilities=False,
 		use_prior_probabilities=False
 		):
@@ -1545,8 +1547,8 @@ class Mecayotl(object):
 				n_cluster=n_samples_real,
 				n_field=n_samples_real,
 				chunks=chunks,
-				minimum_nmin=10,
-				best_model_criterion="AIC",
+				minimum_nmin=minimum_nmin,
+				best_model_criterion=best_model_criterion,
 				replace_probabilities=replace_probabilities,
 				use_prior_probabilities=use_prior_probabilities
 				)
