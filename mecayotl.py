@@ -236,10 +236,7 @@ class Mecayotl(object):
 		#--------------- Catalogue ---------------------
 		print("Reading catalogue ...")
 		cat = Table.read(file_catalogue, format='fits')
-		df_cat = cat.to_pandas()
-		del cat
-		n_sources = df_cat.shape[0]
-		df_cat = df_cat[self.observables]
+		df_cat = cat.to_pandas()[self.observables]
 
 		valid_cat = np.full(len(df_cat),fill_value=True)
 		for obs in self.OBS:
@@ -250,6 +247,8 @@ class Mecayotl(object):
 
 		df_cat = df_cat.loc[valid_cat] 
 		print("There are {0} valid catalogue sources".format(len(df_cat)))
+		n_sources = df_cat.shape[0]
+		del cat
 		#-----------------------------------------------
 
 		#--------- Members ------------------------------------------
