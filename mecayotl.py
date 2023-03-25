@@ -1420,7 +1420,7 @@ class Mecayotl(object):
 		target_accept = 0.95,
 		chains=2,cores=2,
 		nuts_sampler="pymc",
-		models = ["Gaussian","CGMM"],
+		models = ["Gaussian","StudentT","CGMM"],
 		hdi_prob = 0.95
 		):
 
@@ -1438,6 +1438,20 @@ class Mecayotl(object):
 				"field_sd":None,
 				"parametrization":"central",
 				"velocity_model":"joint"
+			},
+			{"type":"StudentT",
+			"parameters":{"location":None,"scale":None},
+			"hyper_parameters":{
+								"alpha":None,
+								"beta":None,
+								"gamma":None,
+								"delta":None,
+								"eta":None,
+								"nu":None,
+								},
+			"field_sd":None,
+			"parametrization":"central",
+			"velocity_model":"joint"
 			}
 			]
 		for n_components in range(2,max_gmm_components+1):
