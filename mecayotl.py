@@ -1421,6 +1421,9 @@ class Mecayotl(object):
 		chains=2,cores=2,
 		nuts_sampler="pymc",
 		models = ["Gaussian","StudentT","CGMM"],
+		hyper_alpha=None,
+		hyper_beta=None,
+		hyper_eta=None,
 		hdi_prob = 0.95
 		):
 
@@ -1429,11 +1432,11 @@ class Mecayotl(object):
 			{"type":"Gaussian",
 				"parameters":{"location":None,"scale":None},
 				"hyper_parameters":{
-									"alpha":None,
-									"beta":None,
+									"alpha":hyper_alpha,
+									"beta":hyper_beta,
 									"gamma":None,
 									"delta":None,
-									"eta":None
+									"eta":hyper_eta,
 									},
 				"field_sd":None,
 				"parametrization":"central",
@@ -1442,11 +1445,11 @@ class Mecayotl(object):
 			{"type":"StudentT",
 			"parameters":{"location":None,"scale":None},
 			"hyper_parameters":{
-								"alpha":None,
-								"beta":None,
+								"alpha":hyper_alpha,
+								"beta":hyper_beta,
 								"gamma":None,
 								"delta":None,
-								"eta":None,
+								"eta":hyper_eta,
 								"nu":None,
 								},
 			"field_sd":None,
@@ -1459,11 +1462,11 @@ class Mecayotl(object):
 				{"type":"CGMM",      
 				"parameters":{"location":None,"scale":None,"weights":None},
 				"hyper_parameters":{
-									"alpha":None,
-									"beta":None, 
+									"alpha":hyper_alpha,
+									"beta":hyper_beta, 
 									"gamma":None,
 									"delta":np.repeat(1,n_components),
-									"eta":None,
+									"eta":hyper_eta,
 									"n_components":n_components
 									},
 				"field_sd":None,
@@ -1533,6 +1536,9 @@ class Mecayotl(object):
 		kalkayotl_ruwe_limit=1.4,
 		kalkayotl_rvs_sigma_clipping=3.0,
 		kalkayotl_allow_rv_missing=False,
+		kalkayotl_hyper_alpha=None,
+		kalkayotl_hyper_beta=None,
+		kalkayotl_hyper_eta=None,
 		n_samples_real=int(1e3),
 		n_samples_syn=int(1e3),
 		chunks=10,
@@ -1578,7 +1584,10 @@ class Mecayotl(object):
 					rv_sd_clipping=kalkayotl_rvs_sigma_clipping,
 					allow_rv_missing=kalkayotl_allow_rv_missing)
 
-			self.run_kalkayotl(models=model)
+			self.run_kalkayotl(models=model,
+					hyper_alpha=kalkayotl_hyper_alpha,
+					hyper_beta=kalkayotl_hyper_beta,
+					hyper_eta=kalkayotl_hyper_eta)
 			self.best_kal = model
 			#-----------------------------------------------------
 
