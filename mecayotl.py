@@ -1424,6 +1424,8 @@ class Mecayotl(object):
 		hyper_alpha=None,
 		hyper_beta=None,
 		hyper_eta=None,
+		prior_predictive=False,
+		posterior_predictive=False,
 		hdi_prob = 0.95
 		):
 
@@ -1518,6 +1520,8 @@ class Mecayotl(object):
 					tuning_iters=tuning_iters,
 					target_accept=target_accept,
 					chains=chains,cores=cores,
+					prior_predictive=prior_predictive,
+					posterior_predictive=posterior_predictive,
 					nuts_sampler=nuts_sampler)
 
 			kal.load_trace()
@@ -1539,6 +1543,8 @@ class Mecayotl(object):
 		kalkayotl_hyper_alpha=None,
 		kalkayotl_hyper_beta=None,
 		kalkayotl_hyper_eta=None,
+		kalkayotl_prior_predictive=False,
+		kalkayotl_posterior_predictive=False,
 		n_samples_real=int(1e3),
 		n_samples_syn=int(1e3),
 		chunks=10,
@@ -1587,7 +1593,9 @@ class Mecayotl(object):
 			self.run_kalkayotl(models=model,
 					hyper_alpha=kalkayotl_hyper_alpha,
 					hyper_beta=kalkayotl_hyper_beta,
-					hyper_eta=kalkayotl_hyper_eta)
+					hyper_eta=kalkayotl_hyper_eta,
+					prior_predictive=kalkayotl_prior_predictive,
+					posterior_predictive=kalkayotl_posterior_predictive)
 			self.best_kal = model
 			#-----------------------------------------------------
 
