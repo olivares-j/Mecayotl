@@ -1234,10 +1234,11 @@ class Mecayotl(object):
 
 	def members_to_kalkayotl(self,file_members,
 			g_mag_limit=None,
-			rv_error_limits=[0.01,50.], # Bounds for rv error
-			ruwe_threshold=1.4,         # Remove stars with higher RUWE
-			rv_sd_clipping=1.0,         # Remove outliers
-			allow_rv_missing = True     # Allow missing values
+			rv_error_limits=[0.01,50.],   # Bounds for rv error
+			ruwe_threshold=1.4,           # Remove stars with higher RUWE
+			prob_threshold=0.997300203937,# 3sigma members
+			rv_sd_clipping=1.0,           # Remove outliers
+			allow_rv_missing = True       # Allow missing values
 			): 
 
 		#=============== APOGEE ===============================
@@ -1290,6 +1291,10 @@ class Mecayotl(object):
 			sys.exit("Format file not recognized. Only CSV of FITS")
 		#-------------------------------------------------------------
 		#==============================================================
+
+		#------------ Probability filter -------------------------
+		df = df.loc[df["prob_cls"]>= prob_threshold]
+		#---------------------------------------------------------
 
 		#=============== Simbad X-Match =================================
 		#----------- Query by name -----------------------------------
