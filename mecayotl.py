@@ -1543,6 +1543,7 @@ class Mecayotl(object):
 		kalkayotl_mag_limit=22.0,
 		kalkayotl_rvs_error_limits=[0.1,2.0],
 		kalkayotl_ruwe_limit=1.4,
+		kalkayotl_prob_threshold=0.999936,
 		kalkayotl_rvs_sigma_clipping=3.0,
 		kalkayotl_allow_rv_missing=False,
 		kalkayotl_hyper_alpha=None,
@@ -1592,6 +1593,7 @@ class Mecayotl(object):
 					g_mag_limit=kalkayotl_mag_limit,
 					rv_error_limits=kalkayotl_rvs_error_limits,
 					ruwe_threshold=kalkayotl_ruwe_limit,
+					prob_threshold=kalkayotl_prob_threshold,
 					rv_sd_clipping=kalkayotl_rvs_sigma_clipping,
 					allow_rv_missing=kalkayotl_allow_rv_missing)
 
