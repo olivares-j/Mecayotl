@@ -375,7 +375,7 @@ class Mecayotl(object):
 		print("Data correctly assembled")
 
 	def infer_models(self,case="Field",instance="Real",
-					tolerance=1e-5,init_min_det=1e-2):
+					tolerance=1e-5,init_min_det=1e-3):
 
 		
 
@@ -1167,10 +1167,12 @@ class Mecayotl(object):
 
 	def run_real(self,file_catalogue,file_members,
 				n_cluster=int(1e5),n_field=int(1e5),
-				chunks=1,minimum_nmin=100,
 				replace_probabilities=False,
 				use_prior_probabilities=False,
-				best_model_criterion="AIC"):
+				best_model_criterion="AIC",
+				init_min_det=1e-3,
+				minimum_nmin=100,
+				chunks=1):
 
 		assert self.best_kal is not None, "You need to specify the best model from Kalkayotl!"
 
@@ -1189,8 +1191,10 @@ class Mecayotl(object):
 		#------------------------------------------------------
 		
 		#--------------- Infer models ---------------------
-		self.infer_models(case="Field",instance="Real")
-		self.infer_models(case="Cluster",instance="Real")
+		self.infer_models(case="Field",  instance="Real",
+				init_min_det=init_min_det)
+		self.infer_models(case="Cluster",instance="Real",
+				init_min_det=init_min_det)
 		#-------------------------------------------------
 
 		#------------- Select best models --------------------------
@@ -1553,11 +1557,12 @@ class Mecayotl(object):
 		kalkayotl_posterior_predictive=False,
 		n_samples_real=int(1e3),
 		n_samples_syn=int(1e3),
-		chunks=10,
 		minimum_nmin=100,
+		init_min_det=1e-3,
 		best_model_criterion="AIC",
 		replace_probabilities=False,
-		use_prior_probabilities=False
+		use_prior_probabilities=False,
+		chunks=10,
 		):
 		base = dir_base + "/iter_{0}"
 		base_members = base + "/Classification/members_mecayotl.csv"
@@ -1611,11 +1616,12 @@ class Mecayotl(object):
 				file_members=file_members,
 				n_cluster=n_samples_real,
 				n_field=n_samples_real,
-				chunks=chunks,
-				minimum_nmin=minimum_nmin,
 				best_model_criterion=best_model_criterion,
 				replace_probabilities=replace_probabilities,
-				use_prior_probabilities=use_prior_probabilities
+				use_prior_probabilities=use_prior_probabilities,
+				minimum_nmin=minimum_nmin,
+				init_min_det=init_min_det,
+				chunks=chunks,
 				)
 			#----------------------------------------------------
 
