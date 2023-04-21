@@ -62,7 +62,14 @@ class Mecayotl(object):
 		path_kalkayotl = "/home/jolivares/Repos/Kalkayotl/",
 		cmap_probability="viridis_r",
 		cmap_features="viridis_r",
-		zero_point=[0.,0.,-0.017,0.,0.,0.],
+		zero_point={
+					"ra":0.,
+					"dec":0.,
+					"parallax":-0.017,# This is Brown+2020 value
+					"pmra":0.,
+					"pmdec":0.,
+					"dr3_radial_velocity":0.
+					},
 		use_GPU=False,
 		rv_names={"rv":"dr3_radial_velocity",
 				  "rv_error":"dr3_radial_velocity_error"},
@@ -97,7 +104,7 @@ class Mecayotl(object):
 		#-------------------------------------
 
 		#-------------- Parameters -----------------------------------------------------
-		self.zero_point= np.array(zero_point)
+		self.zero_point= zero_point
 		self.cmap_prob = plt.get_cmap(cmap_probability)
 		self.cmap_feat = plt.get_cmap(cmap_features)
 		self.idxs      = [[0,1],[2,1],[0,2],[3,4],[5,4],[3,5]]
@@ -278,6 +285,11 @@ class Mecayotl(object):
 		del df_syn
 		#-----------------------------------------------------------------
 
+		#---- Substract zero point--------------
+		for obs in self.OBS:
+			df_cat[obs] -= self.zero_point[obs] 
+		#---------------------------------------
+
 		print("Assembling data ...")
 
 		#------ Extract ---------------------------
@@ -287,10 +299,6 @@ class Mecayotl(object):
 		cr_data = df_cat.loc[:,self.RHO].to_numpy()
 		ex_data = df_cat.loc[:,self.EXT].to_numpy()
 		#------------------------------------------
-
-		#---- Substract zero point---------
-		mu_data = mu_data - self.zero_point
-		#----------------------------------
 
 		#----- Select members and field ----------
 		ids_all  = df_cat["source_id"].to_numpy()
@@ -1520,9 +1528,8 @@ class Mecayotl(object):
 			kal.setup(prior=model["type"],
 					  parameters=model["parameters"],
 					  hyper_parameters=model["hyper_parameters"],
-					  transformation="pc",
 					  parametrization=model["parametrization"],
-					  field_sd=model["field_sd"],
+					  sampling_space=sampling_space,
 					  velocity_model=model["velocity_model"])
 
 			kal.run(sample_iters=sample_iters,
