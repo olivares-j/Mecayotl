@@ -1439,6 +1439,8 @@ class Mecayotl(object):
 		chains=2,cores=2,
 		nuts_sampler="pymc",
 		models = ["Gaussian","StudentT","CGMM"],
+		velocity_model="joint",
+		parametrization="central",
 		hyper_alpha=None,
 		hyper_beta=None,
 		hyper_eta=None,
@@ -1450,17 +1452,14 @@ class Mecayotl(object):
 		#============== Models ===============================================
 		list_of_models = [
 			{"type":"Gaussian",
-				"parameters":{"location":None,"scale":None},
-				"hyper_parameters":{
-									"alpha":hyper_alpha,
-									"beta":hyper_beta,
-									"gamma":None,
-									"delta":None,
-									"eta":hyper_eta,
-									},
-				"field_sd":None,
-				"parametrization":"central",
-				"velocity_model":"joint"
+			"parameters":{"location":None,"scale":None},
+			"hyper_parameters":{
+								"alpha":hyper_alpha,
+								"beta":hyper_beta,
+								"gamma":None,
+								"delta":None,
+								"eta":hyper_eta,
+								}
 			},
 			{"type":"StudentT",
 			"parameters":{"location":None,"scale":None},
@@ -1471,10 +1470,7 @@ class Mecayotl(object):
 								"delta":None,
 								"eta":hyper_eta,
 								"nu":None,
-								},
-			"field_sd":None,
-			"parametrization":"central",
-			"velocity_model":"joint"
+								}
 			}
 			]
 		for n_components in range(2,max_gmm_components+1):
@@ -1488,10 +1484,7 @@ class Mecayotl(object):
 									"delta":np.repeat(1,n_components),
 									"eta":hyper_eta,
 									"n_components":n_components
-									},
-				"field_sd":None,
-				"parametrization":"central",
-				"velocity_model":"joint",
+									}
 			})
 		#====================================================================
 
@@ -1532,9 +1525,9 @@ class Mecayotl(object):
 			kal.setup(prior=model["type"],
 					  parameters=model["parameters"],
 					  hyper_parameters=model["hyper_parameters"],
-					  parametrization=model["parametrization"],
-					  sampling_space=sampling_space,
-					  velocity_model=model["velocity_model"])
+					  parametrization=parametrization,
+					  sampling_space="physical",
+					  velocity_model=velocity_model)
 
 			kal.run(sample_iters=sample_iters,
 					tuning_iters=tuning_iters,
@@ -1564,6 +1557,8 @@ class Mecayotl(object):
 		kalkayotl_hyper_alpha=None,
 		kalkayotl_hyper_beta=None,
 		kalkayotl_hyper_eta=None,
+		kalkayotl_parametrization="central",
+		kalkayotl_velocity_model="joint",
 		kalkayotl_prior_predictive=False,
 		kalkayotl_posterior_predictive=False,
 		n_samples_real=int(1e3),
@@ -1617,6 +1612,8 @@ class Mecayotl(object):
 					hyper_alpha=kalkayotl_hyper_alpha,
 					hyper_beta=kalkayotl_hyper_beta,
 					hyper_eta=kalkayotl_hyper_eta,
+					parametrization=kalkayotl_parametrization,
+					velocity_model=kalkayotl_velocity_model,
 					prior_predictive=kalkayotl_prior_predictive,
 					posterior_predictive=kalkayotl_posterior_predictive)
 			self.best_kal = model
