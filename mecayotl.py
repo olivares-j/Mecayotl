@@ -1495,6 +1495,9 @@ class Mecayotl(object):
 			})
 		#====================================================================
 
+		zero_points = self.zero_points.copy()
+		zero_points["radial_velocity"] = zero_points.pop(self.rv_names["rv"])
+
 		#--------------------- Loop over prior types ------------------------------------
 		for model in list_of_models:
 
@@ -1517,7 +1520,7 @@ class Mecayotl(object):
 			#--------- Initialize the inference module ----------------------------------------
 			kal = self.Inference(dimension=6,
 							dir_out=dir_model,
-							zero_points=self.zero_points,
+							zero_points=zero_points,
 							indep_measures=False,
 							reference_system=self.reference_system)
 
