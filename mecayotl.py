@@ -212,6 +212,7 @@ class Mecayotl(object):
 						"velocity_model":"joint"},
 					  photometric_args=self.photometric_args,
 					  reference_system=self.reference_system,
+					  label_radial_velocity=self.rv_names["rv"],
 					  seed=self.seed)
 
 		X = ama._generate_phase_space(n_stars=n_cluster)
