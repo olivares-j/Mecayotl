@@ -62,7 +62,7 @@ class Mecayotl(object):
 		path_kalkayotl = "/home/jolivares/Repos/Kalkayotl/",
 		cmap_probability="viridis_r",
 		cmap_features="viridis_r",
-		zero_point={
+		zero_points={
 					"ra":0.,
 					"dec":0.,
 					"parallax":-0.017,# This is Brown+2020 value
@@ -104,7 +104,7 @@ class Mecayotl(object):
 		#-------------------------------------
 
 		#-------------- Parameters -----------------------------------------------------
-		self.zero_point= zero_point
+		self.zero_points = zero_points
 		self.cmap_prob = plt.get_cmap(cmap_probability)
 		self.cmap_feat = plt.get_cmap(cmap_features)
 		self.idxs      = [[0,1],[2,1],[0,2],[3,4],[5,4],[3,5]]
@@ -288,7 +288,7 @@ class Mecayotl(object):
 
 		#---- Substract zero point--------------
 		for obs in self.OBS:
-			df_cat[obs] -= self.zero_point[obs] 
+			df_cat[obs] -= self.zero_points[obs] 
 		#---------------------------------------
 
 		print("Assembling data ...")
@@ -1517,7 +1517,7 @@ class Mecayotl(object):
 			#--------- Initialize the inference module ----------------------------------------
 			kal = self.Inference(dimension=6,
 							dir_out=dir_model,
-							zero_point=self.zero_point,
+							zero_points=self.zero_points,
 							indep_measures=False,
 							reference_system=self.reference_system)
 
