@@ -1436,6 +1436,9 @@ class Mecayotl(object):
 		tuning_iters = 3000,
 		sample_iters = 1000,
 		target_accept = 0.95,
+		init_iters=int(1e6),
+		init_absolute_tol=1e-2,
+		init_relative_tol=1e-2,
 		chains=2,cores=2,
 		nuts_sampler="pymc",
 		models = ["Gaussian","StudentT","CGMM"],
@@ -1535,7 +1538,10 @@ class Mecayotl(object):
 					chains=chains,cores=cores,
 					prior_predictive=prior_predictive,
 					posterior_predictive=posterior_predictive,
-					nuts_sampler=nuts_sampler)
+					nuts_sampler=nuts_sampler,
+					init_iters=init_iters,
+					init_absolute_tol=init_absolute_tol,
+					init_relative_tol=init_relative_tol)
 
 			kal.load_trace()
 			kal.convergence()
@@ -1561,6 +1567,9 @@ class Mecayotl(object):
 		kalkayotl_velocity_model="joint",
 		kalkayotl_prior_predictive=False,
 		kalkayotl_posterior_predictive=False,
+		kalkayotl_init_iters=int(1e6),
+		kalkayotl_init_absolute_tol=1e-2,
+		kalkayotl_init_relative_tol=1e-2,
 		n_samples_real=int(1e3),
 		n_samples_syn=int(1e3),
 		minimum_nmin=100,
