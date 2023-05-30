@@ -291,6 +291,12 @@ class Mecayotl(object):
 			df_cat[obs] -= self.zero_points[obs] 
 		#---------------------------------------
 
+		#-------- Sky uncertainties ---------
+		# From mas to deg.
+		for obs in ["ra","dec"]:
+			df_cat[obs] *= 1./(60.*60.*3600.)
+		#------------------------------------
+
 		print("Assembling data ...")
 
 		#------ Extract ---------------------------
