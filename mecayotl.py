@@ -1456,7 +1456,8 @@ class Mecayotl(object):
 		prior_predictive=False,
 		hdi_prob = 0.95,
 		step_size=1e-2,
-		sampling_space="physical"
+		sampling_space="physical",
+		sky_error_factor=1e6
 		):
 
 		#============== Models ===============================================
