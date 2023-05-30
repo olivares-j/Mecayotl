@@ -1455,7 +1455,8 @@ class Mecayotl(object):
 		hyper_eta=None,
 		prior_predictive=False,
 		hdi_prob = 0.95,
-		step_size=1e-2
+		step_size=1e-2,
+		sampling_space="physical"
 		):
 
 		#============== Models ===============================================
