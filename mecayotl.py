@@ -1439,10 +1439,10 @@ class Mecayotl(object):
 
 	def run_kalkayotl(self,
 		max_gmm_components = 2,
-		tuning_iters = 3000,
+		tuning_iters = 2000,
 		sample_iters = 1000,
-		target_accept = 0.95,
-		init_iters=int(1e6),
+		target_accept = 0.65,
+		init_iters=int(1e5),
 		init_absolute_tol=1e-2,
 		init_relative_tol=1e-2,
 		chains=2,cores=2,
@@ -1454,8 +1454,8 @@ class Mecayotl(object):
 		hyper_beta=None,
 		hyper_eta=None,
 		prior_predictive=False,
-		posterior_predictive=False,
-		hdi_prob = 0.95
+		hdi_prob = 0.95,
+		step_size=1e-2
 		):
 
 		#============== Models ===============================================
@@ -1524,27 +1524,27 @@ class Mecayotl(object):
 							dir_out=dir_model,
 							zero_points=zero_points,
 							indep_measures=False,
-							reference_system=self.reference_system)
+							reference_system=self.reference_system,
+							sampling_space=sampling_space,
+							velocity_model=velocity_model)
 
 			#-------- Load the data set --------------------
 			# It will use the Gaia column names by default.
-			kal.load_data(self.file_mem_kal)
-
+			kal.load_data(self.file_mem_kal,
+						sky_error_factor=sky_error_factor)
 			#------ Prepares the model -------------------
 			kal.setup(prior=model["type"],
 					  parameters=model["parameters"],
 					  hyper_parameters=model["hyper_parameters"],
-					  parametrization=parametrization,
-					  sampling_space="physical",
-					  velocity_model=velocity_model)
+					  parametrization=parametrization)
 
 			kal.run(sample_iters=sample_iters,
 					tuning_iters=tuning_iters,
 					target_accept=target_accept,
 					chains=chains,cores=cores,
 					prior_predictive=prior_predictive,
-					posterior_predictive=posterior_predictive,
 					nuts_sampler=nuts_sampler,
+					step_size=step_size,
 					init_iters=init_iters,
 					init_absolute_tol=init_absolute_tol,
 					init_relative_tol=init_relative_tol)
