@@ -1629,8 +1629,7 @@ class Mecayotl(object):
 					hyper_eta=kalkayotl_hyper_eta,
 					parametrization=kalkayotl_parametrization,
 					velocity_model=kalkayotl_velocity_model,
-					prior_predictive=kalkayotl_prior_predictive,
-					posterior_predictive=kalkayotl_posterior_predictive)
+					prior_predictive=kalkayotl_prior_predictive)
 			self.best_kal = model
 			#-----------------------------------------------------
 
