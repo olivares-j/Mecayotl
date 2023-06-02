@@ -541,7 +541,7 @@ class Mecayotl(object):
 		aics = np.array(aics)
 		bics = np.array(bics)
 		nmin = np.array(nmin)
-		ngcs = np.array(ngcs)
+		ngcs = np.array(ngcs,dtype=int8)
 		#---------------------
 
 		#------ Find best ---------------------------------
