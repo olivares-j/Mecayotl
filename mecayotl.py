@@ -479,26 +479,30 @@ class Mecayotl(object):
 			tmp_init["weights"] /= np.sum(tmp_init["weights"])
 			#-------------------------------------------------------------------
 
-			#------------ Inference ---------------------------------------------
-			print("Inferring model with {0} components.".format(n_components))
-			gmm = self.GMM(dimension=6,n_components=n_components)
-			gmm.setup(X,uncertainty=U)
-			gmm.fit(tol=tolerance,
-				init_min_det=init_min_det,
-				init_params=tmp_init,
-				random_state=self.random_state)
-			#--------------------------------------------------------------------
+			try:
+				#------------ Inference ---------------------------------------------
+				print("Inferring model with {0} components.".format(n_components))
+				gmm = self.GMM(dimension=6,n_components=n_components)
+				gmm.setup(X,uncertainty=U)
+				gmm.fit(tol=tolerance,
+					init_min_det=init_min_det,
+					init_params=tmp_init,
+					random_state=self.random_state)
+				#--------------------------------------------------------------------
 
-			#------- Write --------------------------------
-			with h5py.File(file_model,'w') as hf:
-				hf.create_dataset('G',    data=n_components)
-				hf.create_dataset('pros', data=gmm.weights_)
-				hf.create_dataset('means',data=gmm.means_)
-				hf.create_dataset('covs', data=gmm.covariances_)
-				hf.create_dataset('aic',  data=gmm.aic)
-				hf.create_dataset('bic',  data=gmm.bic)
-				hf.create_dataset('nmn',  data=N*np.min(gmm.weights_))
-			#------------------------------------------------
+				#------- Write ---------------------------------------------
+				with h5py.File(file_model,'w') as hf:
+					hf.create_dataset('G',    data=n_components)
+					hf.create_dataset('pros', data=gmm.weights_)
+					hf.create_dataset('means',data=gmm.means_)
+					hf.create_dataset('covs', data=gmm.covariances_)
+					hf.create_dataset('aic',  data=gmm.aic)
+					hf.create_dataset('bic',  data=gmm.bic)
+					hf.create_dataset('nmn',  data=N*np.min(gmm.weights_))
+				#------------------------------------------------------------
+			except Exception as e:
+				print(e)
+				continue
 			print("------------------------------------------")
 
 		del X,U
