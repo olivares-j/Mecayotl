@@ -421,6 +421,7 @@ class Mecayotl(object):
 				init_params["weights"] = np.array(hf.get('pros'))
 				init_params["means"]   = np.array(hf.get('means'))
 				init_params["covs"]    = np.array(hf.get('covs'))
+				init_params["dets"]    = np.array(hf.get('dets'))
 			#------------------------------------------------------
 		else:
 			#+++++++++++++++++++++++++ Inference +++++++++++++++++++++++++++++++++++++
@@ -442,6 +443,7 @@ class Mecayotl(object):
 				hf.create_dataset('pros', data=gmm.weights_)
 				hf.create_dataset('means',data=gmm.means_)
 				hf.create_dataset('covs', data=gmm.covariances_)
+				hf.create_dataset('dets', data=gmm.determinants_)
 				hf.create_dataset('aic',  data=gmm.aic)
 				hf.create_dataset('bic',  data=gmm.bic)
 				hf.create_dataset('nmn',  data=N*np.min(gmm.weights_))
@@ -451,16 +453,18 @@ class Mecayotl(object):
 			init_params["weights"] = gmm.weights_
 			init_params["means"]   = gmm.means_
 			init_params["covs"]    = gmm.covariances_
+			init_params["dets"]    = gmm.determinants_
 			#--------------------------------------------------
 
 			print("------------------------------------------")
 			#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 		#----------- Sort by weight --------------------------
-		idx = np.argsort(init_params["weights"])[::-1]
+		idx = np.argsort(init_params["dets"])[::-1]
 		init_params["weights"] = init_params["weights"][idx]
 		init_params["means"]   = init_params["means"][idx]
 		init_params["covs"]    = init_params["covs"][idx]
+		init_params["dets"]    = init_params["dets"][idx]
 		#-----------------------------------------------------   
 		#=====================================================================================
 
@@ -476,6 +480,7 @@ class Mecayotl(object):
 			tmp_init["weights"] = init_params["weights"][:n_components]
 			tmp_init["means"] = init_params["means"][:n_components]
 			tmp_init["covs"] = init_params["covs"][:n_components]
+			tmp_init["dets"] = init_params["dets"][:n_components]
 			tmp_init["weights"] /= np.sum(tmp_init["weights"])
 			#-------------------------------------------------------------------
 
@@ -496,6 +501,7 @@ class Mecayotl(object):
 					hf.create_dataset('pros', data=gmm.weights_)
 					hf.create_dataset('means',data=gmm.means_)
 					hf.create_dataset('covs', data=gmm.covariances_)
+					hf.create_dataset('dets', data=gmm.determinants_)
 					hf.create_dataset('aic',  data=gmm.aic)
 					hf.create_dataset('bic',  data=gmm.bic)
 					hf.create_dataset('nmn',  data=N*np.min(gmm.weights_))
