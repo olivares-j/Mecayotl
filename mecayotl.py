@@ -476,6 +476,7 @@ class Mecayotl(object):
 			tmp_init["weights"] = init_params["weights"][:n_components]
 			tmp_init["means"] = init_params["means"][:n_components]
 			tmp_init["covs"] = init_params["covs"][:n_components]
+			tmp_init["weights"] /= np.sum(tmp_init["weights"])
 			#-------------------------------------------------------------------
 
 			#------------ Inference ---------------------------------------------
