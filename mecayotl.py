@@ -407,18 +407,84 @@ class Mecayotl(object):
 		N,_ = X.shape
 		#----------------
 
+		#------------ Maximum number of components -----
+		max_n_components = np.max(self.nc_case[case])
+		#-----------------------------------------------
+
+		#============================== Read or infer =======================================
+		file_model = self.file_model_base.format(instance,case,max_n_components)
+		init_params = {}
+
+		if os.path.isfile(file_model):
+			#--------- Read ---------------------------------------
+			with h5py.File(file_model, 'r') as hf:
+				init_params["weights"] = np.array(hf.get('pros'))
+				init_params["means"]   = np.array(hf.get('means'))
+				init_params["covs"]    = np.array(hf.get('covs'))
+			#------------------------------------------------------
+		else:
+			#+++++++++++++++++++++++++ Inference +++++++++++++++++++++++++++++++++++++
+			print("--------------------------------------------")
+
+			#--------------- Do inference ----------------------------------------
+			print("Inferring model with {0} components.".format(max_n_components))
+			gmm = self.GMM(dimension=6,n_components=max_n_components)
+			gmm.setup(X,uncertainty=U)
+			gmm.fit(tol=tolerance,
+				init_min_det=init_min_det,
+				init_params="GMM",
+				random_state=self.random_state)
+			#--------------------------------------------------------------------
+
+			#------- Write --------------------------------
+			with h5py.File(file_model,'w') as hf:
+				hf.create_dataset('G',    data=max_n_components)
+				hf.create_dataset('pros', data=gmm.weights_)
+				hf.create_dataset('means',data=gmm.means_)
+				hf.create_dataset('covs', data=gmm.covariances_)
+				hf.create_dataset('aic',  data=gmm.aic)
+				hf.create_dataset('bic',  data=gmm.bic)
+				hf.create_dataset('nmn',  data=N*np.min(gmm.weights_))
+			#------------------------------------------------
+
+			#-------------- Set as initial parameters ---------
+			init_params["weights"] = gmm.weights_
+			init_params["means"]   = gmm.means_
+			init_params["covs"]    = gmm.covariances_
+			#--------------------------------------------------
+
+			print("------------------------------------------")
+			#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+		#----------- Sort by weight --------------------------
+		idx = np.argsort(init_params["weights"])[::-1]
+		init_params["weights"] = init_params["weights"][idx]
+		init_params["means"]   = init_params["means"][idx]
+		init_params["covs"]    = init_params["covs"][idx]
+		#-----------------------------------------------------   
+		#=====================================================================================
+
 		#-------------------- Loop over models ----------------------------------
-		for n_components in self.nc_case[case]:
+		for n_components in np.sort(self.nc_case[case])[::-1]:
 			file_model = self.file_model_base.format(instance,case,n_components)
 
-			if os.path.isfile(file_model):
+			if os.path.isfile(file_model):	
 				continue
+
+			#------------- Select init_params according to components ----------
+			tmp_init = {}
+			tmp_init["weights"] = init_params["weights"][:n_components]
+			tmp_init["means"] = init_params["means"][:n_components]
+			tmp_init["covs"] = init_params["covs"][:n_components]
+			#-------------------------------------------------------------------
 
 			#------------ Inference ---------------------------------------------
 			print("Inferring model with {0} components.".format(n_components))
 			gmm = self.GMM(dimension=6,n_components=n_components)
 			gmm.setup(X,uncertainty=U)
-			gmm.fit(tol=tolerance,init_min_det=init_min_det,
+			gmm.fit(tol=tolerance,
+				init_min_det=init_min_det,
+				init_params=tmp_init,
 				random_state=self.random_state)
 			#--------------------------------------------------------------------
 
