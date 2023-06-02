@@ -522,21 +522,26 @@ class Mecayotl(object):
 		aics = []
 		bics = []
 		nmin = []
+		ngcs = []
 
 		#--------------- Read models ---------------------------
 		for n_components in self.nc_case[case]:
 			file_model = self.file_model_base.format(instance,case,n_components)
-			#--------- Read -------------------------------------------
-			with h5py.File(file_model, 'r') as hf:
-				aics.append(np.array(hf.get('aic')))
-				bics.append(np.array(hf.get('bic')))
-				nmin.append(np.array(hf.get('nmn')))
-			#-----------------------------------------------------------
+
+			if os.path.isfile(file_model):
+				#--------- Read -------------------------------------------
+				with h5py.File(file_model, 'r') as hf:
+					ngcs.append(np.array(hf.get('G')))
+					aics.append(np.array(hf.get('aic')))
+					bics.append(np.array(hf.get('bic')))
+					nmin.append(np.array(hf.get('nmn')))
+				#-----------------------------------------------------------
 
 		#---- Arrays --------
 		aics = np.array(aics)
 		bics = np.array(bics)
 		nmin = np.array(nmin)
+		ngcs = np.array(ngcs)
 		#---------------------
 
 		#------ Find best ---------------------------------
@@ -552,30 +557,30 @@ class Mecayotl(object):
 
 		#------------ Set best model ------------------------------------------
 		if instance in self.best_gmm.keys():
-			self.best_gmm[instance].update({case:self.nc_case[case][idx_best]})
+			self.best_gmm[instance].update({case:ngcs[idx_best]})
 		else:
-			self.best_gmm.update({instance:{case:self.nc_case[case][idx_best]}})
+			self.best_gmm.update({instance:{case:ngcs[idx_best]}})
 		#-----------------------------------------------------------------------
 		
 		#-----------Plot BIC,AIC,NMIN ------------------------
 		plt.figure(figsize=(8,6))
 		axl = plt.gca()
-		axl.plot(self.nc_case[case],bics,label="BIC")
-		axl.plot(self.nc_case[case],aics,label="AIC")
+		axl.plot(ngcs,bics,label="BIC")
+		axl.plot(ngcs,aics,label="AIC")
 		axl.set_xlabel('Components')
 		axl.set_ylabel("Criterion")
-		axl.set_xticks(self.nc_case[case])
+		axl.set_xticks(ngcs)
 		axl.legend(loc="upper left")
 
 		axr = axl.twinx()
-		axr.plot(self.nc_case[case],nmin,
+		axr.plot(ngcs,nmin,
 				ls="--",color="black",label="$N_{min}$")
 		axr.set_yscale("log")
 		axr.set_ylabel("N_stars in lightest components")
 		axr.legend(loc="upper right")
 
-		axr.axvline(x=self.nc_case[case][idx_best],
-						linewidth=1, color='gray',ls=":")
+		axr.axvline(x=ngcs[idx_best],
+					linewidth=1, color='gray',ls=":")
 
 		plt.savefig(file_comparison,bbox_inches='tight')
 		plt.close()
