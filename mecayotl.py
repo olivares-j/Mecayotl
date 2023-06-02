@@ -293,7 +293,7 @@ class Mecayotl(object):
 
 		#-------- Sky uncertainties ---------
 		# From mas to deg.
-		for obs in ["ra","dec"]:
+		for obs in ["ra_error","dec_error"]:
 			df_cat[obs] *= 1./(60.*60.*3600.)
 		#------------------------------------
 
