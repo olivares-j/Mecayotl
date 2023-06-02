@@ -557,9 +557,9 @@ class Mecayotl(object):
 
 		#------------ Set best model ------------------------------------------
 		if instance in self.best_gmm.keys():
-			self.best_gmm[instance].update({case:ngcs[idx_best]})
+			self.best_gmm[instance].update({case:int(ngcs[idx_best])})
 		else:
-			self.best_gmm.update({instance:{case:ngcs[idx_best]}})
+			self.best_gmm.update({instance:{case:int(ngcs[idx_best])}})
 		#-----------------------------------------------------------------------
 		
 		#-----------Plot BIC,AIC,NMIN ------------------------
