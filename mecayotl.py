@@ -1524,7 +1524,7 @@ class Mecayotl(object):
 		tuning_iters = 2000,
 		sample_iters = 1000,
 		target_accept = 0.65,
-		init_iters=int(1e5),
+		init_iters=int(5e5),
 		init_absolute_tol=1e-2,
 		init_relative_tol=1e-2,
 		chains=2,cores=2,
@@ -1537,7 +1537,7 @@ class Mecayotl(object):
 		hyper_eta=None,
 		prior_predictive=False,
 		hdi_prob = 0.95,
-		step_size=1e-2,
+		step_size=1e-3,
 		sampling_space="physical",
 		sky_error_factor=1e6
 		):
