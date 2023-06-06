@@ -1658,6 +1658,7 @@ class Mecayotl(object):
 		"init_refine":False,
 		"prior_predictive":False,
 		"nuts_sampler":"pymc",
+		"random_seed":None,
 		"hyper_alpha":None,
 		"hyper_beta":None,
 		"hyper_eta":None,
