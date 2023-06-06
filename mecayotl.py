@@ -1514,7 +1514,7 @@ class Mecayotl(object):
 
 	def run_kalkayotl(self,
 		models = ["Gaussian","StudentT","CGMM"],
-		args,
+		args={},
 		):
 
 		#============== Models ===============================================
@@ -1755,24 +1755,24 @@ class Mecayotl(object):
 if __name__ == "__main__":
 	#----------------- Directories ------------------------
 	dir_repos = "/home/jolivares/Repos/"
-	dir_cats  = "/home/jolivares/OCs/TWH/Mecayotl/catalogues/"
-	dir_base  = "/home/jolivares/OCs/TWH/Mecayotl/"
+	dir_cats  = "/home/jolivares/OCs/Rup147/Mecayotl/catalogues/"
+	dir_base  = "/home/jolivares/OCs/Rup147/Mecayotl/"
 	#-------------------------------------------------------
 
 	#----------- Files --------------------------------------------
-	file_gaia     = dir_cats + "TWH_SNR3.fits"
+	file_gaia     = dir_cats + "Rup147_SNR3.fits"
 	file_apogee   = "/home/jolivares/OCs/APOGEE/allStar-dr17-synspec_rev1.fits"
-	file_members  = dir_cats + "members_Nuria_GDR3.csv"
+	file_members  = dir_cats + "Rup147_members.csv"
 	#--------------------------------------------------------------
 
 	photometric_args = {
-	"log_age": 7.0,    
-	"metallicity":0.012,
-	"Av": 0.0,         
-	"mass_limits":[0.01,2.5], 
-	"bands":["G","BP","RP"],
-	"mass_prior":"Uniform"
-	}
+		"log_age": 9.3,    
+		"metallicity":0.012,
+		"Av": 0.0,         
+		"mass_limits":[0.11,1.7], 
+		"bands":["G","BP","RP"],
+		"mass_prior":"Uniform"
+		}
 	
 	mcy = Mecayotl(
 			photometric_args=photometric_args,
@@ -1790,7 +1790,7 @@ if __name__ == "__main__":
 
 	mcy.run(
 		dir_base=dir_base,
-		iterations=10,
+		iterations=2,
 		model="Gaussian",
 		n_samples_real=int(1e3),
 		n_samples_syn=int(1e3)
