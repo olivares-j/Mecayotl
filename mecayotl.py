@@ -1597,17 +1597,24 @@ class Mecayotl(object):
 					  hyper_parameters=model["hyper_parameters"],
 					  parametrization=args["parametrization"])
 
-			kal.run(sample_iters=args["sample_iters"],
+			kal.run(
 					tuning_iters=args["tuning_iters"],
+					sample_iters=args["sample_iters"],
 					target_accept=args["target_accept"],
 					chains=args["chains"],
 					cores=args["cores"],
-					prior_predictive=args["prior_predictive"],
-					nuts_sampler=args["nuts_sampler"],
+					step=args["step"],
 					step_size=args["step_size"],
+					init_method=args["init_method"],
 					init_iters=args["init_iters"],
 					init_absolute_tol=args["init_absolute_tol"],
-					init_relative_tol=args["init_relative_tol"])
+					init_relative_tol=args["init_relative_tol"],
+					init_plot_iters=args["init_plot_iters"],
+					init_refine=args["init_refine"],
+					prior_predictive=args["prior_predictive"],
+					nuts_sampler=args["nuts_sampler"],
+					random_seed=args["random_seed"],
+					)
 
 			kal.load_trace()
 			kal.convergence()
@@ -1641,20 +1648,23 @@ class Mecayotl(object):
 		"target_accept":0.65,
 		"chains":2,
 		"cores":2,
+		"step":None,
+		"step_size":1e-3,
+		"init_method":"advi+adapt_diag",
+		"init_iters":int(1e6),
+		"init_absolute_tol":5e-3,
+		"init_relative_tol":1e-5,
+		"init_plot_iters":int(1e4),
+		"init_refine":False,
+		"prior_predictive":False,
 		"nuts_sampler":"pymc",
 		"hyper_alpha":None,
 		"hyper_beta":None,
 		"hyper_eta":None,
 		"parametrization":"central",
 		"velocity_model":"joint",
-		"prior_predictive":False,
-		"init_iters":int(1e6),
-		"init_absolute_tol":1e-2,
-		"init_relative_tol":1e-2,
-		"init_refine":False,
 		"max_gmm_components":2,
 		"hdi_prob":0.95,
-		"step_size":1e-3,
 		"sampling_space":"physical",
 		"sky_error_factor":1e6
 		}
