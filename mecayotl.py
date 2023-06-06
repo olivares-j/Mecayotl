@@ -1730,7 +1730,7 @@ class Mecayotl(object):
 			self.run_kalkayotl(models=model,
 					hyper_alpha=kalkayotl_args["hyper_alpha"],
 					hyper_beta=kalkayotl_args["hyper_beta"],
-					hyper_eta=kalkayotlargs["_hyper_eta"],
+					hyper_eta=kalkayotl_args["hyper_eta"],
 					parametrization=kalkayotl_args["parametrization"],
 					velocity_model=kalkayotl_args["velocity_model"],
 					prior_predictive=kalkayotl_args["prior_predictive"])
