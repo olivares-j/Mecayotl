@@ -1333,14 +1333,7 @@ class Mecayotl(object):
 						use_prior=use_prior_probabilities)
 		#----------------------------------------------------------
 
-	def members_to_kalkayotl(self,file_members,
-			g_mag_limit=None,
-			rv_error_limits=[0.01,50.],   # Bounds for rv error
-			ruwe_threshold=1.4,           # Remove stars with higher RUWE
-			prob_threshold=0.997300203937,# 3sigma members
-			rv_sd_clipping=1.0,           # Remove outliers
-			allow_rv_missing = True       # Allow missing values
-			): 
+	def members_to_kalkayotl(self,file_members,args): 
 
 		#=============== APOGEE ===============================
 		#----- Load APOGEE ----------------------------------
@@ -1394,7 +1387,7 @@ class Mecayotl(object):
 		#==============================================================
 
 		#------------ Probability filter -------------------------
-		df = df.loc[df["prob_cls"]>= prob_threshold]
+		df = df.loc[df["prob_cls"]>= args["prob_threshold"]]
 		#---------------------------------------------------------
 
 		#=============== Simbad X-Match =================================
@@ -1440,8 +1433,8 @@ class Mecayotl(object):
 		#--------------------------------------
 
 		#------- Drop faint members ---------------
-		if g_mag_limit is not None:
-			df = df.loc[df["g"] < g_mag_limit]
+		if args["g_mag_limit"] is not None:
+			df = df.loc[df["g"] < args["g_mag_limit"]]
 		#----------------------------------------------
 		#================================================
 
@@ -1478,18 +1471,18 @@ class Mecayotl(object):
 
 		print("Replacing minumum and maximum uncertainties ...")
 		#----------- Set minimum uncertainty -------------------------------------
-		condition = df["radial_velocity_error"] < rv_error_limits[0]
-		df.loc[condition,"radial_velocity_error"] = rv_error_limits[0]
+		condition = df["radial_velocity_error"] < args["rv_error_limits"][0]
+		df.loc[condition,"radial_velocity_error"] = args["rv_error_limits"][0]
 		#-------------------------------------------------------------------------
 
 		#----------- Set maximum uncertainty -------------------------------------
-		condition = df["radial_velocity_error"] > rv_error_limits[1]
+		condition = df["radial_velocity_error"] > args["rv_error_limits"][1]
 		df.loc[condition,"radial_velocity"] = np.nan
 		df.loc[condition,"radial_velocity_error"]  = np.nan
 		#-------------------------------------------------------------------------
 
 		#------------- Binaries -------------------------------
-		condition = df.loc[:,"ruwe"] > ruwe_threshold
+		condition = df.loc[:,"ruwe"] > args["ruwe_threshold"]
 		df.loc[condition,"radial_velocity"] = np.nan
 		df.loc[condition,"radial_velocity_error"]  = np.nan
 		print("Binaries: {0}".format(sum(condition)))
@@ -1500,14 +1493,14 @@ class Mecayotl(object):
 		sd_rv = np.nanstd(df["radial_velocity"])
 		print("Radial velocity: {0:2.1f} +/- {1:2.1f} km/s".format(mu_rv,sd_rv))
 		maha_dst = np.abs(df["radial_velocity"] - mu_rv)/sd_rv
-		condition = maha_dst > rv_sd_clipping
+		condition = maha_dst > args["rv_sd_clipping"]
 		df.loc[condition,"radial_velocity"] = np.nan
 		df.loc[condition,"radial_velocity_error"]  = np.nan
 		print("Outliers: {0}".format(sum(condition)))
 		#----------------------------------------------------------------------------
 
 		#------------------------ Allow RV missing ------------------------
-		if not allow_rv_missing:
+		if not args["allow_rv_missing"]:
 			df.dropna(subset=["radial_velocity","radial_velocity_error"],
 				inplace=True)
 		#------------------------------------------------------------------
@@ -1520,26 +1513,8 @@ class Mecayotl(object):
 		#==================================================================
 
 	def run_kalkayotl(self,
-		max_gmm_components = 2,
-		tuning_iters = 2000,
-		sample_iters = 1000,
-		target_accept = 0.65,
-		init_iters=int(5e5),
-		init_absolute_tol=1e-2,
-		init_relative_tol=1e-2,
-		chains=2,cores=2,
-		nuts_sampler="pymc",
 		models = ["Gaussian","StudentT","CGMM"],
-		velocity_model="joint",
-		parametrization="central",
-		hyper_alpha=None,
-		hyper_beta=None,
-		hyper_eta=None,
-		prior_predictive=False,
-		hdi_prob = 0.95,
-		step_size=1e-3,
-		sampling_space="physical",
-		sky_error_factor=1e6
+		args,
 		):
 
 		#============== Models ===============================================
@@ -1547,35 +1522,35 @@ class Mecayotl(object):
 			{"type":"Gaussian",
 			"parameters":{"location":None,"scale":None},
 			"hyper_parameters":{
-								"alpha":hyper_alpha,
-								"beta":hyper_beta,
+								"alpha":args["hyper_alpha"],
+								"beta":args["hyper_beta"],
 								"gamma":None,
 								"delta":None,
-								"eta":hyper_eta,
+								"eta":args["hyper_eta"],
 								}
 			},
 			{"type":"StudentT",
 			"parameters":{"location":None,"scale":None},
 			"hyper_parameters":{
-								"alpha":hyper_alpha,
-								"beta":hyper_beta,
+								"alpha":args["hyper_alpha"],
+								"beta":args["hyper_beta"],
 								"gamma":None,
 								"delta":None,
-								"eta":hyper_eta,
+								"eta":args["hyper_eta"],
 								"nu":None,
 								}
 			}
 			]
-		for n_components in range(2,max_gmm_components+1):
+		for n_components in range(2,args["max_gmm_components"]+1):
 			list_of_models.append(
 				{"type":"CGMM",      
 				"parameters":{"location":None,"scale":None,"weights":None},
 				"hyper_parameters":{
-									"alpha":hyper_alpha,
-									"beta":hyper_beta, 
+									"alpha":args["hyper_alpha"],
+									"beta":args["hyper_beta"], 
 									"gamma":None,
 									"delta":np.repeat(1,n_components),
-									"eta":hyper_eta,
+									"eta":args["hyper_eta"],
 									"n_components":n_components
 									}
 			})
@@ -1609,36 +1584,37 @@ class Mecayotl(object):
 							zero_points=zero_points,
 							indep_measures=False,
 							reference_system=self.reference_system,
-							sampling_space=sampling_space,
-							velocity_model=velocity_model)
+							sampling_space=args["sampling_space"],
+							velocity_model=args["velocity_model"])
 
 			#-------- Load the data set --------------------
 			# It will use the Gaia column names by default.
 			kal.load_data(self.file_mem_kal,
-						sky_error_factor=sky_error_factor)
+						sky_error_factor=args["sky_error_factor"])
 			#------ Prepares the model -------------------
 			kal.setup(prior=model["type"],
 					  parameters=model["parameters"],
 					  hyper_parameters=model["hyper_parameters"],
-					  parametrization=parametrization)
+					  parametrization=args["parametrization"])
 
-			kal.run(sample_iters=sample_iters,
-					tuning_iters=tuning_iters,
-					target_accept=target_accept,
-					chains=chains,cores=cores,
-					prior_predictive=prior_predictive,
-					nuts_sampler=nuts_sampler,
-					step_size=step_size,
-					init_iters=init_iters,
-					init_absolute_tol=init_absolute_tol,
-					init_relative_tol=init_relative_tol)
+			kal.run(sample_iters=args["sample_iters"],
+					tuning_iters=args["tuning_iters"],
+					target_accept=args["target_accept"],
+					chains=args["chains"],
+					cores=args["cores"],
+					prior_predictive=args["prior_predictive"],
+					nuts_sampler=args["nuts_sampler"],
+					step_size=args["step_size"],
+					init_iters=args["init_iters"],
+					init_absolute_tol=args["init_absolute_tol"],
+					init_relative_tol=args["init_relative_tol"])
 
 			kal.load_trace()
 			kal.convergence()
 			kal.plot_chains()
 			kal.plot_prior_check()
 			kal.plot_model(chain=1)
-			kal.save_statistics(hdi_prob=hdi_prob)
+			kal.save_statistics(hdi_prob=args["hdi_prob"])
 
 	def run(self,dir_base,iterations,model,
 		synthetic_seeds=[0,1,2,3,4,5,6,7,8,9],
@@ -1660,6 +1636,12 @@ class Mecayotl(object):
 
 		#---------------- Default arguments ----------------------
 		kalkayotl_default_args = {
+		"tuning_iters":2000,
+		"sample_iters":1000,
+		"target_accept":0.65,
+		"chains":2,
+		"cores":2,
+		"nuts_sampler":"pymc",
 		"hyper_alpha":None,
 		"hyper_beta":None,
 		"hyper_eta":None,
@@ -1669,7 +1651,12 @@ class Mecayotl(object):
 		"init_iters":int(1e6),
 		"init_absolute_tol":1e-2,
 		"init_relative_tol":1e-2,
-		"init_refine":False
+		"init_refine":False,
+		"max_gmm_components":2,
+		"hdi_prob":0.95,
+		"step_size":1e-3,
+		"sampling_space":"physical",
+		"sky_error_factor":1e6
 		}
 
 		for arg,val in kalkayotl_default_args.items():
@@ -1679,11 +1666,11 @@ class Mecayotl(object):
 
 		#---------------- Members arguments ----------------------
 		members_default_args = {
-		"mag_limit":22.0,
-		"rvs_error_limits":[0.1,2.0],
-		"ruwe_limit":1.4,
+		"g_mag_limit":22.0,
+		"rv_error_limits":[0.1,2.0],
+		"ruwe_threshold":1.4,
 		"prob_threshold":0.999936,
-		"rvs_sigma_clipping":3.0,
+		"rv_sd_clipping":3.0,
 		"allow_rv_missing":False,
 		}
 
@@ -1720,20 +1707,10 @@ class Mecayotl(object):
 			#----------- Kalkayotl ------------------------------
 			if not os.path.exists(self.file_mem_kal):
 				self.members_to_kalkayotl(file_members=file_members,
-					g_mag_limit=members_arg["mag_limit"],
-					rv_error_limits=members_arg["rvs_error_limits"],
-					ruwe_threshold=members_arg["ruwe_limit"],
-					prob_threshold=members_arg["prob_threshold"],
-					rv_sd_clipping=members_arg["rvs_sigma_clipping"],
-					allow_rv_missing=members_arg["allow_rv_missing"])
+					args=members_args)
 
 			self.run_kalkayotl(models=model,
-					hyper_alpha=kalkayotl_args["hyper_alpha"],
-					hyper_beta=kalkayotl_args["hyper_beta"],
-					hyper_eta=kalkayotl_args["hyper_eta"],
-					parametrization=kalkayotl_args["parametrization"],
-					velocity_model=kalkayotl_args["velocity_model"],
-					prior_predictive=kalkayotl_args["prior_predictive"])
+					args=kalkayotl_args)
 			self.best_kal = model
 			#-----------------------------------------------------
 
