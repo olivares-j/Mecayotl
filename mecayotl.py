@@ -31,21 +31,21 @@ Simbad.add_votable_fields('velocity')
 #------------------------------------------
 
 def get_principal(sigma,level=2.0):
-    sd_x   = np.sqrt(sigma[0,0])
-    sd_y   = np.sqrt(sigma[1,1])
-    rho_xy = sigma[0,1]/(sd_x*sd_y)
+	sd_x   = np.sqrt(sigma[0,0])
+	sd_y   = np.sqrt(sigma[1,1])
+	rho_xy = sigma[0,1]/(sd_x*sd_y)
 
 
-    # Author: Jake VanderPlas
-    # License: BSD
-    #----------------------------------------
-    sigma_xy2 = rho_xy * sd_x * sd_y
+	# Author: Jake VanderPlas
+	# License: BSD
+	#----------------------------------------
+	sigma_xy2 = rho_xy * sd_x * sd_y
 
-    alpha = 0.5 * np.arctan2(2 * sigma_xy2,(sd_x ** 2 - sd_y ** 2))
-    tmp1  = 0.5 * (sd_x ** 2 + sd_y ** 2)
-    tmp2  = np.sqrt(0.25 * (sd_x ** 2 - sd_y ** 2) ** 2 + sigma_xy2 ** 2)
+	alpha = 0.5 * np.arctan2(2 * sigma_xy2,(sd_x ** 2 - sd_y ** 2))
+	tmp1  = 0.5 * (sd_x ** 2 + sd_y ** 2)
+	tmp2  = np.sqrt(0.25 * (sd_x ** 2 - sd_y ** 2) ** 2 + sigma_xy2 ** 2)
 
-    return level*np.sqrt(tmp1 + tmp2), level*np.sqrt(np.abs(tmp1 - tmp2)), alpha* 180. / np.pi
+	return level*np.sqrt(tmp1 + tmp2), level*np.sqrt(np.abs(tmp1 - tmp2)), alpha* 180. / np.pi
 
 class Mecayotl(object):
 	"""
@@ -1588,7 +1588,7 @@ class Mecayotl(object):
 		for model in list_of_models:
 
 			if model["type"] not in models:
-			 	continue
+				continue
 
 			#------ Output directories for each prior -----------------------------------
 			dir_model = self.dir_main +"/Kalkayotl/"+ model["type"]
@@ -1644,22 +1644,6 @@ class Mecayotl(object):
 		synthetic_seeds=[0,1,2,3,4,5,6,7,8,9],
 		bins = [4.0,6.0,8.0,10.0,12.0,14.0,16.0,18.0,20.0],
 		covariate_limits = [4.0,22.0],
-		kalkayotl_mag_limit=22.0,
-		kalkayotl_rvs_error_limits=[0.1,2.0],
-		kalkayotl_ruwe_limit=1.4,
-		kalkayotl_prob_threshold=0.999936,
-		kalkayotl_rvs_sigma_clipping=3.0,
-		kalkayotl_allow_rv_missing=False,
-		kalkayotl_hyper_alpha=None,
-		kalkayotl_hyper_beta=None,
-		kalkayotl_hyper_eta=None,
-		kalkayotl_parametrization="central",
-		kalkayotl_velocity_model="joint",
-		kalkayotl_prior_predictive=False,
-		kalkayotl_posterior_predictive=False,
-		kalkayotl_init_iters=int(1e6),
-		kalkayotl_init_absolute_tol=1e-2,
-		kalkayotl_init_relative_tol=1e-2,
 		n_samples_real=int(1e3),
 		n_samples_syn=int(1e3),
 		minimum_nmin=100,
@@ -1668,9 +1652,45 @@ class Mecayotl(object):
 		replace_probabilities=False,
 		use_prior_probabilities=False,
 		chunks=10,
+		members_args={},
+		kalkayotl_args={},
 		):
 		base = dir_base + "/iter_{0}"
 		base_members = base + "/Classification/members_mecayotl.csv"
+
+		#---------------- Default arguments ----------------------
+		kalkayotl_default_args = {
+		"hyper_alpha":None,
+		"hyper_beta":None,
+		"hyper_eta":None,
+		"parametrization":"central",
+		"velocity_model":"joint",
+		"prior_predictive":False,
+		"init_iters":int(1e6),
+		"init_absolute_tol":1e-2,
+		"init_relative_tol":1e-2,
+		"init_refine":False
+		}
+
+		for arg,val in kalkayotl_default_args.items():
+			if not arg in kalkayotl_args:
+				kalkayotl_args[arg] = val
+		#----------------------------------------------------------
+
+		#---------------- Members arguments ----------------------
+		members_default_args = {
+		"mag_limit":22.0,
+		"rvs_error_limits":[0.1,2.0],
+		"ruwe_limit":1.4,
+		"prob_threshold":0.999936,
+		"rvs_sigma_clipping":3.0,
+		"allow_rv_missing":False,
+		}
+
+		for arg,val in members_default_args.items():
+			if not arg in members_args:
+				members_args[arg] = val
+		#----------------------------------------------------------
 
 		print(30*"="+" START "+30*"=")
 		for iteration in range(0,iterations):
@@ -1700,20 +1720,20 @@ class Mecayotl(object):
 			#----------- Kalkayotl ------------------------------
 			if not os.path.exists(self.file_mem_kal):
 				self.members_to_kalkayotl(file_members=file_members,
-					g_mag_limit=kalkayotl_mag_limit,
-					rv_error_limits=kalkayotl_rvs_error_limits,
-					ruwe_threshold=kalkayotl_ruwe_limit,
-					prob_threshold=kalkayotl_prob_threshold,
-					rv_sd_clipping=kalkayotl_rvs_sigma_clipping,
-					allow_rv_missing=kalkayotl_allow_rv_missing)
+					g_mag_limit=members_arg["mag_limit"],
+					rv_error_limits=members_arg["rvs_error_limits"],
+					ruwe_threshold=members_arg["ruwe_limit"],
+					prob_threshold=members_arg["prob_threshold"],
+					rv_sd_clipping=members_arg["rvs_sigma_clipping"],
+					allow_rv_missing=members_arg["allow_rv_missing"])
 
 			self.run_kalkayotl(models=model,
-					hyper_alpha=kalkayotl_hyper_alpha,
-					hyper_beta=kalkayotl_hyper_beta,
-					hyper_eta=kalkayotl_hyper_eta,
-					parametrization=kalkayotl_parametrization,
-					velocity_model=kalkayotl_velocity_model,
-					prior_predictive=kalkayotl_prior_predictive)
+					hyper_alpha=kalkayotl_args["hyper_alpha"],
+					hyper_beta=kalkayotl_args["hyper_beta"],
+					hyper_eta=kalkayotlargs["_hyper_eta"],
+					parametrization=kalkayotl_args["parametrization"],
+					velocity_model=kalkayotl_args["velocity_model"],
+					prior_predictive=kalkayotl_args["prior_predictive"])
 			self.best_kal = model
 			#-----------------------------------------------------
 
@@ -1795,10 +1815,6 @@ if __name__ == "__main__":
 		dir_base=dir_base,
 		iterations=10,
 		model="Gaussian",
-		kalkayotl_mag_limit=22.0,
-		kalkayotl_rvs_error_limits=[0.1,2.0],
-		kalkayotl_ruwe_limit=1.4,
-		kalkayotl_rvs_sigma_clipping=3.0,
 		n_samples_real=int(1e3),
 		n_samples_syn=int(1e3)
 		)
