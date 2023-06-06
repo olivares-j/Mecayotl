@@ -1541,7 +1541,7 @@ class Mecayotl(object):
 								}
 			}
 			]
-		for n_components in range(2,args["max_gmm_components"]+1):
+		for n_components in range(args["min_gmm_components"],args["max_gmm_components"]+1):
 			list_of_models.append(
 				{"type":"CGMM",      
 				"parameters":{"location":None,"scale":None,"weights":None},
@@ -1664,6 +1664,7 @@ class Mecayotl(object):
 		"hyper_eta":None,
 		"parametrization":"central",
 		"velocity_model":"joint",
+		"min_gmm_components":2
 		"max_gmm_components":2,
 		"hdi_prob":0.95,
 		"sampling_space":"physical",
