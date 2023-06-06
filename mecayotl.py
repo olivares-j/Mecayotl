@@ -1664,7 +1664,7 @@ class Mecayotl(object):
 		"hyper_eta":None,
 		"parametrization":"central",
 		"velocity_model":"joint",
-		"min_gmm_components":2
+		"min_gmm_components":2,
 		"max_gmm_components":2,
 		"hdi_prob":0.95,
 		"sampling_space":"physical",
