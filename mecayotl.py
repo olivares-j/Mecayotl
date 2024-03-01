@@ -73,7 +73,12 @@ class Mecayotl(object):
 	https://gdn.iib.unam.mx/termino/search?queryCreiterio=mecayotl&queryPartePalabra=cualquiera&queryBuscarEn=nahuatl&queryLimiteRegistros=50 
 	"""
 
-	def __init__(self,photometric_args,file_apogee,file_gaia,initial_members,
+	def __init__(self,dir_base,
+		file_members,
+		file_gaia,
+		members_args={},
+		isochrones_args={},
+		kalkayotl_args={},
 		nc_cluster=range(2,21),
 		nc_field=range(2,21),
 		path_mcmichael = "/home/jolivares/Repos/McMichael/",
@@ -87,26 +92,132 @@ class Mecayotl(object):
 					"parallax":-0.017,# This is Brown+2020 value
 					"pmra":0.,
 					"pmdec":0.,
-					"dr3_radial_velocity":0.
+					"radial_velocity":0.
 					},
 		use_GPU=False,
-		rv_names={"rv":"dr3_radial_velocity",
-				  "rv_error":"dr3_radial_velocity_error"},
+		mapper_names={
+		"radial_velocity":"dr3_radial_velocity",
+		"phot_g_mean_mag":"g",
+		"phot_bp_mean_mag":"bp",
+		"phot_rp_mean_mag":"rp"},
 		reference_system="Galactic",
+		model="Gaussian",
 		seed=1234):
 
+		self.dir_base = dir_base
+
 		gaia_observables = ["source_id",
-		"ra","dec","parallax","pmra","pmdec",rv_names["rv"],
-		"ra_error","dec_error","parallax_error","pmra_error","pmdec_error",rv_names["rv_error"],
+		"ra","dec","parallax","pmra","pmdec","radial_velocity",
+		"ra_error","dec_error","parallax_error","pmra_error","pmdec_error","radial_velocity_error",
 		"ra_dec_corr","ra_parallax_corr","ra_pmra_corr","ra_pmdec_corr",
 		"dec_parallax_corr","dec_pmra_corr","dec_pmdec_corr",
 		"parallax_pmra_corr","parallax_pmdec_corr",
 		"pmra_pmdec_corr",
-		"g","rp","ruwe"]
+		"phot_g_mean_mag",
+		"phot_bp_mean_mag",
+		"phot_rp_mean_mag",
+		"ruwe"]
+
+		#---------------- Members arguments ----------------------
+		members_default_args = {
+		"g_mag_limit":22.0,
+		"rv_error_limits":[0.1,2.0],
+		"ruwe_threshold":1.4,
+		"prob_threshold":0.999936,
+		"rv_sd_clipping":3.0,
+		"allow_rv_missing":False,
+		}
+
+		for arg,val in members_default_args.items():
+			if not arg in members_args:
+				members_args[arg] = val
+
+		self.members_args = members_args
+		print("The following members_args will be used:")
+		for k,v in self.members_args.items():
+			print("{0} : {1}".format(k,v))
+		#----------------------------------------------------------
+
+		#---------------- Kalkayotl arguments ----------------------
+		kalkayotl_default_args = {
+		"distribution":"Gaussian",
+		"statistic":"mean",
+		"tuning_iters":2000,
+		"sample_iters":1000,
+		"target_accept":0.65,
+		"chains":2,
+		"cores":2,
+		"step":None,
+		"step_size":1e-3,
+		"init_method":"advi+adapt_diag",
+		"init_iters":int(1e6),
+		"init_absolute_tol":5e-3,
+		"init_relative_tol":1e-5,
+		"init_plot_iters":int(1e4),
+		"init_refine":False,
+		"prior_predictive":False,
+		"nuts_sampler":"pymc",
+		"random_seed":None,
+		"parameterization":"central",
+		"velocity_model":"joint",
+		"min_gmm_components":2,
+		"max_gmm_components":2,
+		"hdi_prob":0.95,
+		"sampling_space":"physical",
+		"sky_error_factor":1e6
+		}
+
+		for arg,val in kalkayotl_default_args.items():
+			if not arg in kalkayotl_args:
+				kalkayotl_args[arg] = val
+
+		self.kalkayotl_args = kalkayotl_args
+		print("The following kalkayotl_args will be used:")
+		for k,v in self.kalkayotl_args.items():
+			print("{0} : {1}".format(k,v))
+		#----------------------------------------------------------
+
+		#---------------- Isochrones arguments ----------------------
+		isochrones_default_args = {
+		"log_age": 8.0,    
+		"metallicity":0.012,
+		"Av": 0.0,         
+		"mass_limits":[0.1,2.0], 
+		"bands":["G","BP","RP"],
+		"mass_prior":"Uniform"
+		}
+
+		for arg,val in isochrones_default_args.items():
+			if not arg in isochrones_args:
+				isochrones_args[arg] = val
+
+		self.isochrones_args = isochrones_args
+		print("The following isochrones_args will be used:")
+		for k,v in self.isochrones_args.items():
+			print("{0} : {1}".format(k,v))
+		#----------------------------------------------------------
+
+		#-------------------------------- Mappers ----------------------------------------------
+		col_names = ["radial_velocity","phot_g_mean_mag","phot_rp_mean_mag","phot_bp_mean_mag"]
+		assert set(col_names).issubset(set(mapper_names.keys())),\
+		"Error: the following column names must be present in the mapper:\n"+col_names
+
+		output_mapper = mapper_names
+		input_mapper =  { v:k for k, v in mapper_names.items()}
+
+		self.input_mapper = input_mapper.copy()
+		self.output_mapper = output_mapper.copy()
+		
+		base_error = "{0}_error"
+		for k,v in input_mapper.items():
+			self.input_mapper[base_error.format(k)] = base_error.format(v)
+		for k,v in output_mapper.items():
+			self.output_mapper[base_error.format(k)] = base_error.format(v)
+		#----------------------------------------------------------------------------------------
 
 		#------ Set Seed -----------------
 		np.random.seed(seed=seed)
-		self.random_state = seed#np.random.RandomState(seed=seed)
+		self.random_state = seed
 		self.seed = seed
 		#----------------------------------------------------
 
@@ -117,9 +228,8 @@ class Mecayotl(object):
 		#-------------------------------------------------
 
 		#------------- Files  -------------------------
-		self.file_apogee = file_apogee
-		self.file_gaia   = file_gaia
-		self.file_members= initial_members
+		self.file_gaia    = file_gaia
+		self.file_members = file_members
 		#-------------------------------------
 
 		#-------------- Parameters -----------------------------------------------------
@@ -129,7 +239,7 @@ class Mecayotl(object):
 		self.idxs      = [[0,1],[2,1],[0,2],[3,4],[5,4],[3,5]]
 		self.plots     = [
 						  ["ra","dec"],["pmra","pmdec"],
-						  ["parallax","pmdec"],["g_rp","g"],["g_rp","G"]
+						  ["parallax","pmdec"],["g_rp","phot_g_mean_mag"],["g_rp","G"]
 						 ]
 		self.IDS       = gaia_observables[0]
 		self.OBS       = gaia_observables[1:7]
@@ -139,12 +249,12 @@ class Mecayotl(object):
 		self.PRO       = "prob_cls"
 		self.nc_case   = {"Field":nc_field,"Cluster":nc_cluster}
 		self.best_gmm  = {}
-		self.best_kal  = None
-		self.photometric_args = photometric_args
+		self.isochrones_args = isochrones_args
 		self.use_GPU   = use_GPU
 		self.observables = gaia_observables
-		self.rv_names  = rv_names
 		self.reference_system = reference_system
+
+		
 
 		#------------------ Limits --------------------------------------------
 		self.limits_observables = {
@@ -153,7 +263,7 @@ class Mecayotl(object):
 			"pmra":{"inf":-400.0,"sup":400.0},
 			"pmdec":{"inf":-400.0,"sup":400.0},
 			"parallax":{"inf":-100,"sup":100},
-			rv_names["rv"]:{"inf":-200.0,"sup":200.0}
+			"radial_velocity":{"inf":-200.0,"sup":200.0}
 			}
 
 		#----------- APOGEE -----------------------------------------------------------------
@@ -200,8 +310,9 @@ class Mecayotl(object):
 		#------------------------------------------
 
 		#---------------- Files --------------------------------------------------
-		self.file_mem_kal    = dir_main + "/Kalkayotl/members+rvs.csv"
-		self.file_mod_kal    = dir_main + "/Kalkayotl/{0}/Cluster_statistics.csv"
+		self.file_mem_kal    = dir_main + "/Kalkayotl/members.csv"
+		self.file_par_kal    = dir_main + "/Kalkayotl/{0}/Cluster_statistics.csv".format(
+			self.kalkayotl_args["distribution"])
 		self.file_smp_base   = dir_main + "/{0}/Data/members_synthetic.csv"
 		self.file_data_base  = dir_main + "/{0}/Data/data.h5"
 		self.file_model_base = dir_main + "/{0}/Models/{1}_GMM_{2}.h5"
@@ -228,10 +339,12 @@ class Mecayotl(object):
 		#----------- Generate true astrometry ---------------
 		ama = self.Amasijo(kalkayotl_args={
 						"file":file_kalkayotl,
-						"velocity_model":"joint"},
-					  photometric_args=self.photometric_args,
+						"statistic":self.kalkayotl_args["statistic"]},
+					  isochrones_args=self.isochrones_args,
 					  reference_system=self.reference_system,
-					  label_radial_velocity=self.rv_names["rv"],
+					  radial_velocity={
+					  	"labels":{"radial_velocity":"dr3_radial_velocity"},
+					  	"family":"Gaia"},
 					  seed=self.seed)
 
 		X = ama._generate_phase_space(n_stars=n_cluster)
@@ -246,7 +359,7 @@ class Mecayotl(object):
 			ama.labels_true_as[2]:self.observables[3],#"parallax",
 			ama.labels_true_as[3]:self.observables[4],#"pmra",
 			ama.labels_true_as[4]:self.observables[5],#"pmdec",
-			ama.labels_true_as[5]:self.observables[6],#"dr3_radial_velocity"
+			ama.labels_true_as[5]:self.observables[6],#"radial_velocity"
 			},inplace=True)
 		#------------------------------------------------
 
@@ -263,7 +376,8 @@ class Mecayotl(object):
 		#--------------- Catalogue ---------------------
 		print("Reading catalogue ...")
 		cat = Table.read(file_catalogue, format='fits')
-		df_cat = cat.to_pandas()[self.observables]
+		df_cat = cat.to_pandas()
+		df_cat = df_cat.rename(columns=self.input_mapper).loc[:,self.observables]
 
 		valid_cat = np.full(len(df_cat),fill_value=True)
 		for obs in self.OBS:
@@ -281,14 +395,13 @@ class Mecayotl(object):
 		#--------- Members ------------------------------------------
 		print("Reading members ...")
 		if '.csv' in file_members:
-			df_mem = pd.read_csv(file_members)
+			df_mem = pd.read_csv(file_members,usecols=[self.IDS])
 		elif ".fits" in file_members:
 			dat = Table.read(file_members, format='fits')
-			df_mem  = dat.to_pandas()
+			df_mem  = dat.to_pandas().loc[:,[self.IDS]]
 			del dat
 		else:
 			sys.exit("Format file not recognized. Only CSV of FITS")
-		df_mem = df_mem[self.observables]
 		#-------------------------------------------------------------
 
 		#----------- Synthetic -------------------------------------------
@@ -327,8 +440,8 @@ class Mecayotl(object):
 		#------------------------------------------
 
 		#----- Select members and field ----------
-		ids_all  = df_cat["source_id"].to_numpy()
-		ids_mem  = df_mem["source_id"].to_numpy()
+		ids_all  = df_cat[self.IDS].to_numpy()
+		ids_mem  = df_mem[self.IDS].to_numpy()
 		mask_mem = np.isin(ids_all,ids_mem)
 		idx_cls  = np.where(mask_mem)[0]
 		idx_fld  = np.where(~mask_mem)[0]
@@ -866,11 +979,21 @@ class Mecayotl(object):
 			#-------------------------------------------
 
 			#---------- Generate cluster ---------------------------
-			ama = Amasijo(photometric_args=self.photometric_args,
-						  kalkayotl_args={
-						  "file":self.file_mod_kal.format(self.best_kal),
-						  "velocity_model":"joint"},
-						  seed=seed)
+			ama = Amasijo(isochrones_args=self.isochrones_args,
+						kalkayotl_args={
+						"file":self.file_par_kal,
+						"statistic":self.kalkayotl_args["statistic"],
+						"velocity_model":"joint"},
+						photometry={
+						"labels":{
+							"phot_g_mean_mag":"phot_g_mean_mag",
+							"phot_bp_mean_mag":"phot_bp_mean_mag",
+							"phot_rp_mean_mag":"phot_rp_mean_mag"},
+						"family":"Gaia"},
+						radial_velocity={
+						"labels":{"radial_velocity":"radial_velocity"},
+						"family":"Gaia"},
+						seed=seed)
 			ama.generate_cluster(file_smp,n_stars=n_cluster,
 				angular_correlations=None)
 			# ama.plot_cluster(file_plot=file_smp.replace(".csv",".pdf"))
@@ -1044,7 +1167,7 @@ class Mecayotl(object):
 
 
 	def find_probability_threshold(self,seeds,bins=4,
-		covariate="g",metric="MCC",covariate_limits=None,
+		covariate="phot_g_mean_mag",metric="MCC",covariate_limits=None,
 		plot_log_scale=False,
 		prob_steps={
 				0.954499736103642:10, # 2sigma
@@ -1228,14 +1351,18 @@ class Mecayotl(object):
 		#--------------------------------------------
 
 		#----------- Color ---------------------------
-		df_mem["g_rp"] = df_mem["g"] - df_mem["rp"]
-		df_cnd["g_rp"] = df_cnd["g"] - df_cnd["rp"]
+		if "g_rp" not in df_mem.columns:
+			df_mem["g_rp"] = df_mem["phot_g_mean_mag"] - \
+							 df_mem["phot_rp_mean_mag"]
+		if "g_rp" not in df_cnd.columns:
+			df_cnd["g_rp"] = df_cnd["phot_g_mean_mag"] - \
+							 df_cnd["phot_rp_mean_mag"]
 		#---------------------------------------------
 
 		#----------- Absoulute magnitude ------------------
-		df_mem["G"] = df_mem["g"] + 5.*( 1.0 - 
+		df_mem["G"] = df_mem["phot_g_mean_mag"] + 5.*( 1.0 - 
 						np.log10(1000./df_mem["parallax"]))
-		df_cnd["G"] = df_cnd["g"] + 5.*( 1.0 - 
+		df_cnd["G"] = df_cnd["phot_g_mean_mag"] + 5.*( 1.0 - 
 						np.log10(1000./df_cnd["parallax"]))
 		#--------------------------------------------------
 
@@ -1290,12 +1417,10 @@ class Mecayotl(object):
 				minimum_nmin=100,
 				chunks=1):
 
-		assert self.best_kal is not None, "You need to specify the best model from Kalkayotl!"
-
 		#-------------------- Synthetic --------------------------
 		if not os.path.isfile(self.file_smp_base.format("Real")):
 			self.generate_true_cluster(n_cluster=n_cluster,
-					file_kalkayotl=self.file_mod_kal.format(self.best_kal))
+					file_kalkayotl=self.file_par_kal)
 		#---------------------------------------------------------
 
 		#------------- Assemble -----------------------------------
@@ -1352,45 +1477,7 @@ class Mecayotl(object):
 						use_prior=use_prior_probabilities)
 		#----------------------------------------------------------
 
-	def members_to_kalkayotl(self,file_members,args): 
-
-		#=============== APOGEE ===============================
-		#----- Load APOGEE ----------------------------------
-		apogee = Table.read(self.file_apogee, format='fits',hdu=1)
-		#----------------------------------------------------
-
-		#--- Extract desired columns ----------------
-		apogee = apogee[self.apogee_columns]
-		#--------------------------------------------
-
-		#- Transform to pandas DF ---
-		apogee = apogee.to_pandas()
-		#----------------------------
-
-		#------------- RV error ---------------
-		apogee["apogee_rv_error"] = np.where(
-			apogee["VSCATTER"] == 0.0, 
-			apogee["VERR"],
-			apogee["VSCATTER"])
-		#--------------------------------------
-
-		#------- Rename columns ---------------------------
-		apogee.rename(columns=self.apogee_rename,inplace=True)
-		#--------------------------------------------------
-
-		#------ Drop missing RA,DEC ----------------------------
-		apogee.dropna(subset=["RA","DEC"],inplace=True)
-		#-------------------------------------------------------
-
-		#--------- Drop unused columns ----------------------
-		apogee = apogee[["source_id","apogee_rv","apogee_rv_error"]]
-		#----------------------------------------------------
-
-		#----- Set index -------------------------
-		apogee.drop_duplicates(subset="source_id",inplace=True)
-		apogee.set_index("source_id",inplace=True)
-		#-----------------------------------------
-		#=======================================================
+	def fileter_members(self,file_members,args): 
 
 		#============= Load members =========================
 		#----- Load catalogue ------------------------
@@ -1399,6 +1486,8 @@ class Mecayotl(object):
 		elif ".fits" in file_members:
 			dat = Table.read(file_members, format='fits')
 			df  = dat.to_pandas()
+			assert "prob_cls" in df.columns,"Error: prob_cls not present in input members file!"
+			df.rename(columns=self.input_mapper,inplace=True)
 			del dat
 		else:
 			sys.exit("Format file not recognized. Only CSV of FITS")
@@ -1409,77 +1498,10 @@ class Mecayotl(object):
 		df = df.loc[df["prob_cls"]>= args["prob_threshold"]]
 		#---------------------------------------------------------
 
-		#=============== Simbad X-Match =================================
-		#----------- Query by name -----------------------------------
-		df["Name"] = df.apply(lambda x: "Gaia EDR3 {0}".format(
-								np.int_(x["source_id"])),axis=1)
-
-		df_simbad = Simbad.query_objects(df["Name"]).to_pandas()
-		#-------------------------------------------------------------
-
-		#---------- Drop redshift values ---------------------------------
-		df_simbad.drop(index=df_simbad[df_simbad["RVZ_TYPE"] != "v"].index,
-						inplace=True)
-		#------------------------------------------------------------------
-
-		#---------- Drop rows with no rv uncertainty ----------------
-		df_simbad.dropna(how="any",subset=["RVZ_RADVEL","RVZ_ERROR"],
-						inplace=True)
-		#-------------------------------------------------------------
-
-		#------- Merge by original query number ---------
-		df_simbad.set_index("SCRIPT_NUMBER_ID",inplace=True)
-		df = df.merge(df_simbad,left_index=True,
-						right_index=True,how="left")
-		#-----------------------------------------------
-
-		df.rename(columns={
-					"RVZ_RADVEL":"simbad_radial_velocity",
-					"RVZ_ERROR":"simbad_radial_velocity_error"},
-					inplace=True)
-
-		#--- Assert that observed values have uncertainties and viceversa ----
-		nan_rvs = np.isnan(df["simbad_radial_velocity"].values)
-		nan_unc = np.isnan(df["simbad_radial_velocity_error"].values)
-		np.testing.assert_array_equal(nan_rvs,nan_unc,
-		err_msg="Simbad: There are discrepant missing uncertainties and values!")
-		#---------------------------------------------------------------------
-		#================================================================
-
-		#------- Set index --------------------
-		df.set_index("source_id",inplace=True)
-		assert df.index.is_unique, "Index values are not unique. Remove duplicated sources!"
-		#--------------------------------------
-
 		#------- Drop faint members ---------------
 		if args["g_mag_limit"] is not None:
-			df = df.loc[df["g"] < args["g_mag_limit"]]
+			df = df.loc[df["phot_g_mean_mag"] < args["g_mag_limit"]]
 		#----------------------------------------------
-		#================================================
-
-		#============= X-Match APOGEE ===================================
-		#----------------- Merge ----------------------------------------
-		print("Merging with original catalogue ...")
-		df = df.merge(apogee,how="left",left_index=True,right_index=True,
-					validate="one_to_one",
-					suffixes=["_original","_apogee"],sort=False)
-		#----------------------------------------------------------------
-		#================================================================
-
-		#----------- Use APOGEE or Gaia or Simbad when available -----------------------
-		df["radial_velocity"] = df.apply(lambda x: x["apogee_rv"]
-								if np.isfinite(x["apogee_rv"]) 
-								else x[self.rv_names["rv"]]
-								if np.isfinite(x[self.rv_names["rv"]]) 
-								else x["simbad_radial_velocity"],
-								axis=1)
-		df["radial_velocity_error"] = df.apply(lambda x: x["apogee_rv_error"]  
-								if np.isfinite(x["apogee_rv"]) 
-								else x[self.rv_names["rv_error"]]
-								if np.isfinite(x[self.rv_names["rv_error"]]) 
-								else x["simbad_radial_velocity_error"],
-								axis=1)
-		#-------------------------------------------------------------------------------
 
 		#--- Assert that observed values have uncertainties and viceversa ----
 		nan_rvs = np.isnan(df["radial_velocity"].values)
@@ -1532,74 +1554,69 @@ class Mecayotl(object):
 		#==================================================================
 
 	def run_kalkayotl(self,
-		models = ["Gaussian","StudentT","CGMM"],
+		distributions = ["Gaussian","StudentT","CGMM"],
 		args={},
 		):
 
 		#============== Models ===============================================
-		list_of_models = [
-			{"type":"Gaussian",
+		list_of_distributions = [
+			{"name":"Gaussian",
 			"parameters":{"location":None,"scale":None},
 			"hyper_parameters":{
-								"alpha":args["hyper_alpha"],
-								"beta":args["hyper_beta"],
-								"gamma":None,
-								"delta":None,
-								"eta":args["hyper_eta"],
+								"location":None,
+								"scale":None,
+								"eta":None,
 								}
 			},
-			{"type":"StudentT",
-			"parameters":{"location":None,"scale":None},
+			{"name":"StudentT",
+			"parameters":{"location":None,"scale":None,"nu":None},
 			"hyper_parameters":{
-								"alpha":args["hyper_alpha"],
-								"beta":args["hyper_beta"],
-								"gamma":None,
-								"delta":None,
-								"eta":args["hyper_eta"],
+								"location":None,
+								"scale":None,
+								"eta":None,
 								"nu":None,
 								}
 			}
 			]
 		for n_components in range(args["min_gmm_components"],args["max_gmm_components"]+1):
-			list_of_models.append(
-				{"type":"CGMM",      
+			list_of_distributions.append(
+				{"name":"CGMM",      
 				"parameters":{"location":None,"scale":None,"weights":None},
 				"hyper_parameters":{
-									"alpha":args["hyper_alpha"],
-									"beta":args["hyper_beta"], 
+									"location":None,
+									"scale":None, 
 									"gamma":None,
-									"delta":np.repeat(1,n_components),
-									"eta":args["hyper_eta"],
-									"n_components":n_components
+									"weights":{"n_components":n_components},
+									"eta":None,
 									}
 			})
 		#====================================================================
 
 		zero_points = self.zero_points.copy()
-		zero_points["radial_velocity"] = zero_points.pop(self.rv_names["rv"])
+		zero_points["radial_velocity"] = zero_points.pop("radial_velocity")
 
 		#--------------------- Loop over prior types ------------------------------------
-		for model in list_of_models:
+		for distribution in list_of_distributions:
 
-			if model["type"] not in models:
+			if distribution["name"] not in distributions:
 				continue
 
 			#------ Output directories for each prior -----------------------------------
-			dir_model = self.dir_main +"/Kalkayotl/"+ model["type"]
+			dir_out = self.dir_main +"/Kalkayotl/"+ distribution["name"]
 			#-------------------------------------------------------------------------
 
 			#---------- Continue if file already present ----------
-			if os.path.exists(dir_model+"/Cluster_statistics.csv"):
+			if os.path.exists(dir_out+"/Cluster_statistics.csv"):
 				continue
 			#------------------------------------------------------
 
 			#----- Create model directory -------
-			os.makedirs(dir_model,exist_ok=True)
+			os.makedirs(dir_out,exist_ok=True)
 			#------------------------------------
 
 			#--------- Initialize the inference module ----------------------------------------
 			kal = self.Inference(dimension=6,
-							dir_out=dir_model,
+							dir_out=dir_out,
 							zero_points=zero_points,
 							indep_measures=False,
 							reference_system=self.reference_system,
@@ -1611,10 +1628,10 @@ class Mecayotl(object):
 			kal.load_data(self.file_mem_kal,
 						sky_error_factor=args["sky_error_factor"])
 			#------ Prepares the model -------------------
-			kal.setup(prior=model["type"],
-					  parameters=model["parameters"],
-					  hyper_parameters=model["hyper_parameters"],
-					  parametrization=args["parametrization"])
+			kal.setup(prior=distribution["name"],
+					  parameters=distribution["parameters"],
+					  hyper_parameters=distribution["hyper_parameters"],
+					  parameterization=args["parameterization"])
 
 			kal.run(
 					tuning_iters=args["tuning_iters"],
@@ -1642,7 +1659,7 @@ class Mecayotl(object):
 			kal.plot_model(chain=1)
 			kal.save_statistics(hdi_prob=args["hdi_prob"])
 
-	def run(self,dir_base,iterations,model,
+	def run(self,iterations,
 		synthetic_seeds=[0,1,2,3,4,5,6,7,8,9],
 		bins = [4.0,6.0,8.0,10.0,12.0,14.0,16.0,18.0,20.0],
 		covariate_limits = [4.0,22.0],
@@ -1653,62 +1670,10 @@ class Mecayotl(object):
 		best_model_criterion="AIC",
 		replace_probabilities=False,
 		use_prior_probabilities=False,
-		chunks=10,
-		members_args={},
-		kalkayotl_args={},
+		chunks=10
 		):
-		base = dir_base + "/iter_{0}"
+		base = self.dir_base + "/iter_{0}"
 		base_members = base + "/Classification/members_mecayotl.csv"
-
-		#---------------- Default arguments ----------------------
-		kalkayotl_default_args = {
-		"tuning_iters":2000,
-		"sample_iters":1000,
-		"target_accept":0.65,
-		"chains":2,
-		"cores":2,
-		"step":None,
-		"step_size":1e-3,
-		"init_method":"advi+adapt_diag",
-		"init_iters":int(1e6),
-		"init_absolute_tol":5e-3,
-		"init_relative_tol":1e-5,
-		"init_plot_iters":int(1e4),
-		"init_refine":False,
-		"prior_predictive":False,
-		"nuts_sampler":"pymc",
-		"random_seed":None,
-		"hyper_alpha":None,
-		"hyper_beta":None,
-		"hyper_eta":None,
-		"parametrization":"central",
-		"velocity_model":"joint",
-		"min_gmm_components":2,
-		"max_gmm_components":2,
-		"hdi_prob":0.95,
-		"sampling_space":"physical",
-		"sky_error_factor":1e6
-		}
-
-		for arg,val in kalkayotl_default_args.items():
-			if not arg in kalkayotl_args:
-				kalkayotl_args[arg] = val
-		#----------------------------------------------------------
-
-		#---------------- Members arguments ----------------------
-		members_default_args = {
-		"g_mag_limit":22.0,
-		"rv_error_limits":[0.1,2.0],
-		"ruwe_threshold":1.4,
-		"prob_threshold":0.999936,
-		"rv_sd_clipping":3.0,
-		"allow_rv_missing":False,
-		}
-
-		for arg,val in members_default_args.items():
-			if not arg in members_args:
-				members_args[arg] = val
-		#----------------------------------------------------------
 
 		print(30*"="+" START "+30*"=")
 		for iteration in range(0,iterations):
@@ -1737,12 +1702,11 @@ class Mecayotl(object):
 
 			#----------- Kalkayotl ------------------------------
 			if not os.path.exists(self.file_mem_kal):
-				self.members_to_kalkayotl(file_members=file_members,
-					args=members_args)
+				self.fileter_members(file_members=file_members,
+					args=self.members_args)
 
-			self.run_kalkayotl(models=model,
-					args=kalkayotl_args)
-			self.best_kal = model
+			self.run_kalkayotl(distributions=self.kalkayotl_args["distribution"],
+				args=self.kalkayotl_args)
 			#-----------------------------------------------------
 
 			#--------------- Real -------------------------------
@@ -1792,11 +1756,14 @@ if __name__ == "__main__":
 
 	#----------- Files --------------------------------------------
 	file_gaia     = dir_cats + "Rup147_SNR3.fits"
-	file_apogee   = "/home/jolivares/OCs/APOGEE/allStar-dr17-synspec_rev1.fits"
 	file_members  = dir_cats + "Rup147_members.csv"
 	#--------------------------------------------------------------
 
-	photometric_args = {
+	kalkayotl_args = {
+	"distribution":"CGMM"
+	}
+
+	isochrones_args = {
 		"log_age": 9.3,    
 		"metallicity":0.012,
 		"Av": 0.0,         
@@ -1806,12 +1773,13 @@ if __name__ == "__main__":
 		}
 	
 	mcy = Mecayotl(
-			photometric_args=photometric_args,
-			file_apogee=file_apogee,
+			dir_base=dir_base,
 			file_gaia=file_gaia,
-			initial_members=file_members,
-			nc_cluster=[2,3,4,5],
-			nc_field=[2,3,4,5],
+			file_members=file_members,
+			kalkayotl_args=kalkayotl_args,
+			isochrones_args=isochrones_args,
+			nc_cluster=[1],
+			nc_field=[1],
 			use_GPU=False,
 			path_amasijo=dir_repos+"Amasijo/",
 			path_mcmichael=dir_repos+"McMichael/",
@@ -1820,9 +1788,8 @@ if __name__ == "__main__":
 			seed=12345)
 
 	mcy.run(
-		dir_base=dir_base,
 		iterations=2,
-		model="Gaussian",
+		synthetic_seeds=[0],
 		n_samples_real=int(1e3),
 		n_samples_syn=int(1e3)
 		)
