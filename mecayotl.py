@@ -668,6 +668,12 @@ class Mecayotl(object):
 					bics.append(np.array(hf.get('bic')))
 					nmin.append(np.array(hf.get('nmn')))
 				#-----------------------------------------------------------
+			else:
+				ngcs.append(n_components)
+				aics.append(np.nan)
+				bics.append(np.nan)
+				nmin.append(np.nan)
+
 
 		#---- Arrays --------
 		aics = np.array(aics)
