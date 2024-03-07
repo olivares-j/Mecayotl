@@ -650,6 +650,7 @@ class Mecayotl(object):
 							minimum_nmin=100,criterion="AIC"):
 
 		file_comparison = self.file_comparison.format(instance,case)
+		print(self.nc_case[case])
 
 		#-------------------- Arrays --------------------
 		ngcs = np.array(self.nc_case[case],dtype=np.int8)
@@ -657,6 +658,7 @@ class Mecayotl(object):
 		bics = np.full_like(ngcs,np.nan,dtype=np.float32)
 		nmin = np.full_like(ngcs,np.nan,dtype=np.float32)
 		#-------------------------------------------------
+		print(ngcs)
 
 		#--------------- Read models ---------------------------
 		for i,n_components in enumerate(self.nc_case[case]):
@@ -672,8 +674,6 @@ class Mecayotl(object):
 				#-----------------------------------------------------------
 
 		#------ Find best ---------------------------------
-		print(aics)
-		print(nmin)
 		idx_valid = np.where(nmin > minimum_nmin)[0]
 		assert len(idx_valid)>0,"Error: not valid GMM model for the {0} case".format(case)
 		if criterion == "BIC":
@@ -683,10 +683,6 @@ class Mecayotl(object):
 		else:
 			sys.exit("Criterion {0} not valid".format(criterion))
 		idx_best  = idx_valid[idx_min]
-		print(idx_valid)
-		print(idx_min)
-		print(idx_best)
-		print("ngcs",ngcs)
 		#--------------------------------------------------
 
 		#------------ Set best model ------------------------------------------
