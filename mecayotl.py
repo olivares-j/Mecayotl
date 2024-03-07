@@ -683,6 +683,9 @@ class Mecayotl(object):
 		else:
 			sys.exit("Criterion {0} not valid".format(criterion))
 		idx_best  = idx_valid[idx_min]
+		print(idx_valid)
+		print(idx_min)
+		print(idx_best)
 		#--------------------------------------------------
 
 		#------------ Set best model ------------------------------------------
