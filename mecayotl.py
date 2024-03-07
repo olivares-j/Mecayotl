@@ -659,7 +659,7 @@ class Mecayotl(object):
 		#-------------------------------------------------
 
 		#--------------- Read models ---------------------------
-		for i,n_components in self.nc_case[case]:
+		for i,n_components in enumerate(self.nc_case[case]):
 			file_model = self.file_model_base.format(instance,case,n_components)
 
 			if os.path.isfile(file_model):
