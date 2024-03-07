@@ -1481,12 +1481,14 @@ class Mecayotl(object):
 		elif ".fits" in file_members:
 			dat = Table.read(file_members, format='fits')
 			df  = dat.to_pandas()
-			assert "prob_cls" in df.columns,"Error: prob_cls not present in input members file!"
-			df.rename(columns=self.input_mapper,inplace=True)
 			del dat
 		else:
 			sys.exit("Format file not recognized. Only CSV of FITS")
 		#-------------------------------------------------------------
+		#--------- Rename and verify prob_cls -----------------------------------------------
+		df.rename(columns=self.input_mapper,inplace=True)
+		assert "prob_cls" in df.columns,"Error: prob_cls not present in input members file!"
+		#------------------------------------------------------------------------------------
 		#==============================================================
 
 		#------------ Probability filter -------------------------
