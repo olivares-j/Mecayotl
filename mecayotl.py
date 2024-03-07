@@ -686,6 +686,7 @@ class Mecayotl(object):
 		print(idx_valid)
 		print(idx_min)
 		print(idx_best)
+		print("ngcs",ngcs)
 		#--------------------------------------------------
 
 		#------------ Set best model ------------------------------------------
