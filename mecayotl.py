@@ -650,7 +650,6 @@ class Mecayotl(object):
 							minimum_nmin=100,criterion="AIC"):
 
 		file_comparison = self.file_comparison.format(instance,case)
-		print(case,instance,self.nc_case[case])
 
 		#-------------------- Arrays --------------------
 		ngcs = np.array(self.nc_case[case],dtype=np.int16)
@@ -658,7 +657,6 @@ class Mecayotl(object):
 		bics = np.full_like(ngcs,np.nan,dtype=np.float32)
 		nmin = np.full_like(ngcs,np.nan,dtype=np.float32)
 		#-------------------------------------------------
-		print(case,instance,ngcs)
 
 		#--------------- Read models ---------------------------
 		for i,n_components in enumerate(self.nc_case[case]):
@@ -1445,7 +1443,6 @@ class Mecayotl(object):
 									minimum_nmin=minimum_nmin,
 									criterion=best_model_criterion)
 			print("The best real GMM models are:")
-			print(self.best_gmm)
 		#-----------------------------------------------------------
 
 		#----------------- Plot best models ---------------
@@ -1683,7 +1680,6 @@ class Mecayotl(object):
 			#--------- Initialization -----------------------------------
 			self.initialize_directories(dir_main=base.format(iteration))
 			self.best_gmm  = {}
-			print(self.best_gmm)
 			#-----------------------------------------------------------
 
 			#-------------- First iteration -------------------
