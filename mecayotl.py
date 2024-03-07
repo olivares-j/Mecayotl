@@ -653,7 +653,7 @@ class Mecayotl(object):
 		print(case,instance,self.nc_case[case])
 
 		#-------------------- Arrays --------------------
-		ngcs = np.array(self.nc_case[case],dtype=np.int8)
+		ngcs = np.array(self.nc_case[case],dtype=np.int16)
 		aics = np.full_like(ngcs,np.nan,dtype=np.float32)
 		bics = np.full_like(ngcs,np.nan,dtype=np.float32)
 		nmin = np.full_like(ngcs,np.nan,dtype=np.float32)
