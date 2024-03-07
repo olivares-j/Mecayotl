@@ -1487,7 +1487,9 @@ class Mecayotl(object):
 		#-------------------------------------------------------------
 		#--------- Rename and verify prob_cls -----------------------------------------------
 		df.rename(columns=self.input_mapper,inplace=True)
-		assert "prob_cls" in df.columns,"Error: prob_cls not present in input members file!"
+		if "prob_cls" not in df.columns:
+			df["prob_cls"] = 1.0
+			print("WARNING: prob_cls is not present in input members file and was set to 1.0")
 		#------------------------------------------------------------------------------------
 		#==============================================================
 
