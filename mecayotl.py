@@ -651,39 +651,29 @@ class Mecayotl(object):
 
 		file_comparison = self.file_comparison.format(instance,case)
 
-		aics = []
-		bics = []
-		nmin = []
-		ngcs = []
+		#-------------------- Arrays --------------------
+		ngcs = np.array(self.nc_case[case],dtype=np.int8)
+		aics = np.full_like(ngcs,np.nan)
+		bics = np.full_like(ngcs,np.nan)
+		nmin = np.full_like(ngcs,np.nan)
+		#-------------------------------------------------
 
 		#--------------- Read models ---------------------------
-		for n_components in self.nc_case[case]:
+		for i,n_components in self.nc_case[case]:
 			file_model = self.file_model_base.format(instance,case,n_components)
 
 			if os.path.isfile(file_model):
 				#--------- Read -------------------------------------------
 				with h5py.File(file_model, 'r') as hf:
-					ngcs.append(np.array(hf.get('G')))
-					aics.append(np.array(hf.get('aic')))
-					bics.append(np.array(hf.get('bic')))
-					nmin.append(np.array(hf.get('nmn')))
+					assert n_components == np.array(hf.get('G')),"Error in components!"
+					aics[i] = np.array(hf.get('aic'))
+					bics[i] = np.array(hf.get('bic'))
+					nmin[i] = np.array(hf.get('nmn'))
 				#-----------------------------------------------------------
-			else:
-				ngcs.append(n_components)
-				aics.append(np.nan)
-				bics.append(np.nan)
-				nmin.append(np.nan)
-
-
-		#---- Arrays --------
-		aics = np.array(aics)
-		bics = np.array(bics)
-		nmin = np.array(nmin)
-		ngcs = np.array(ngcs,dtype=np.int8)
-		#---------------------
 
 		#------ Find best ---------------------------------
 		idx_valid = np.where(nmin > minimum_nmin)[0]
+		assert len(idx_valid)>0,"Error: not valid GMM model for the {0} case".format(case)
 		if criterion == "BIC":
 			idx_min   = np.argmin(bics[idx_valid])
 		elif criterion == "AIC":
@@ -1691,6 +1681,7 @@ class Mecayotl(object):
 			#--------- Initialization -----------------------------------
 			self.initialize_directories(dir_main=base.format(iteration))
 			self.best_gmm  = {}
+			print(self.best_gmm)
 			#-----------------------------------------------------------
 
 			#-------------- First iteration -------------------
