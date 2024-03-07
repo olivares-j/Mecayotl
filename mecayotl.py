@@ -650,7 +650,7 @@ class Mecayotl(object):
 							minimum_nmin=100,criterion="AIC"):
 
 		file_comparison = self.file_comparison.format(instance,case)
-		print(self.nc_case[case])
+		print(case,instance,self.nc_case[case])
 
 		#-------------------- Arrays --------------------
 		ngcs = np.array(self.nc_case[case],dtype=np.int8)
@@ -658,7 +658,7 @@ class Mecayotl(object):
 		bics = np.full_like(ngcs,np.nan,dtype=np.float32)
 		nmin = np.full_like(ngcs,np.nan,dtype=np.float32)
 		#-------------------------------------------------
-		print(ngcs)
+		print(case,instance,ngcs)
 
 		#--------------- Read models ---------------------------
 		for i,n_components in enumerate(self.nc_case[case]):
