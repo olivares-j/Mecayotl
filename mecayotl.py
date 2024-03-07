@@ -653,9 +653,9 @@ class Mecayotl(object):
 
 		#-------------------- Arrays --------------------
 		ngcs = np.array(self.nc_case[case],dtype=np.int8)
-		aics = np.full_like(ngcs,np.nan)
-		bics = np.full_like(ngcs,np.nan)
-		nmin = np.full_like(ngcs,np.nan)
+		aics = np.full_like(ngcs,np.nan,dtype=np.float32)
+		bics = np.full_like(ngcs,np.nan,dtype=np.float32)
+		nmin = np.full_like(ngcs,np.nan,dtype=np.float32)
 		#-------------------------------------------------
 
 		#--------------- Read models ---------------------------
