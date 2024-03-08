@@ -1443,6 +1443,7 @@ class Mecayotl(object):
 									minimum_nmin=minimum_nmin,
 									criterion=best_model_criterion)
 			print("The best real GMM models are:")
+			print(self.best_gmm["Real"])
 		#-----------------------------------------------------------
 
 		#----------------- Plot best models ---------------
