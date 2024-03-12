@@ -673,7 +673,7 @@ class Mecayotl(object):
 
 		#------ Find best ---------------------------------
 		idx_valid = np.where(nmin > minimum_nmin)[0]
-		assert len(idx_valid)>0,"Error: not valid GMM model for the {0} case".format(case)
+		assert len(idx_valid)>0,"Error: All {0} GMM models have nmin < {1}".format(case,minimum_nmin)
 		if criterion == "BIC":
 			idx_min   = np.argmin(bics[idx_valid])
 		elif criterion == "AIC":
