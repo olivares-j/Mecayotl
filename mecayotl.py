@@ -856,6 +856,12 @@ class Mecayotl(object):
 		print("Reading data ...")
 		with h5py.File(file_data, 'r') as hf:
 			if self.PRO in hf.keys() and not replace:
+				cls_ngmm = np.array(hf.get("Cluster_nGMM"))
+				fld_ngmm = np.array(hf.get("Field_nGMM"))
+				assert cls_ngmm = self.best_gmm[instance]["Cluster"],\
+				"ERROR: different best cluster model from that used for probabilities"
+				assert fld_ngmm = self.best_gmm[instance]["Field"],\
+				"ERROR: different best field model from that used for probabilities"
 				return
 			mu = np.array(hf.get("mu"))
 			sg = np.array(hf.get("sg"))
@@ -946,7 +952,11 @@ class Mecayotl(object):
 		with h5py.File(file_data, 'a') as hf:
 			if replace:
 				del hf[self.PRO]
+				del hf["Cluster_nGMM"]
+				del hf["Field_nGMM"]
 			hf.create_dataset(self.PRO,data=pc)
+			hf.create_dataset("Cluster_nGMM",data=self.best_gmm[instance]["Cluster"])
+			hf.create_dataset("Field_nGMM",data=self.best_gmm[instance]["Field"])
 		#-----------------------------------------------------------
 
 	def generate_synthetic(self,n_cluster=int(1e5),seeds=range(1)):
