@@ -858,9 +858,9 @@ class Mecayotl(object):
 			if self.PRO in hf.keys() and not replace:
 				cls_ngmm = np.array(hf.get("Cluster_nGMM"))
 				fld_ngmm = np.array(hf.get("Field_nGMM"))
-				assert cls_ngmm = self.best_gmm[instance]["Cluster"],\
+				assert cls_ngmm == self.best_gmm[instance]["Cluster"],\
 				"ERROR: different best cluster model from that used for probabilities"
-				assert fld_ngmm = self.best_gmm[instance]["Field"],\
+				assert fld_ngmm == self.best_gmm[instance]["Field"],\
 				"ERROR: different best field model from that used for probabilities"
 				return
 			mu = np.array(hf.get("mu"))
