@@ -45,7 +45,7 @@ from matplotlib.colors import Normalize,TwoSlopeNorm
 from tqdm import tqdm
 
 #---------- Configure simbad --------------
-Simbad.remove_votable_fields('coordinates')
+# Simbad.remove_votable_fields('coordinates')
 Simbad.add_votable_fields('velocity')
 #------------------------------------------
 
