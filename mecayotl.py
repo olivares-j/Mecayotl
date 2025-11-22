@@ -81,7 +81,7 @@ class Mecayotl(object):
 		kalkayotl_args={},
 		nc_cluster=range(2,21),
 		nc_field=range(2,21),
-		path_mcmichael = "/home/jolivares/Repos/McMichael/",
+		path_ayome     = "/home/jolivares/Repos/Ayome_GPU/",
 		path_amasijo   = "/home/jolivares/Repos/Amasijo/",
 		path_kalkayotl = "/home/jolivares/Repos/Kalkayotl/",
 		cmap_probability="viridis_r",
@@ -222,7 +222,7 @@ class Mecayotl(object):
 		#----------------------------------------------------
 
 		#------------- Repo paths -----------------
-		self.path_mcmi       = path_mcmichael
+		self.path_ayome      = path_ayome
 		self.path_amasijo    = path_amasijo
 		self.path_kalkayotl  = path_kalkayotl
 		#-------------------------------------------------
@@ -250,7 +250,6 @@ class Mecayotl(object):
 		self.nc_case   = {"Field":nc_field,"Cluster":nc_cluster}
 		self.best_gmm  = {}
 		self.isochrones_args = isochrones_args
-		self.use_GPU   = use_GPU
 		self.observables = gaia_observables
 		self.reference_system = reference_system
 
@@ -283,25 +282,19 @@ class Mecayotl(object):
 		self.Inference = Inference
 		#-----------------------------------------
 
-		#-------- McMichael ----------------------------------------------------------------
-		if self.use_GPU:
-			#-------------- Commands to replace dimension -----------------------------
-			cmd = 'sed -e "s|DIMENSION|{0}|g"'.format(6)
-			cmd += ' {0}GPU/Functions_base.py > {0}GPU/Functions.py'.format(self.path_mcmi)
-			os.system(cmd)
-			#--------------------------------------------------------------------------
-		sys.path.append(self.path_mcmi)
+		#============================== Ayome ================================
+		#-------------- Commands to replace dimension -----------------------
+		cmd = 'sed -e "s|DIMENSION|{0}|g"'.format(6)
+		cmd += ' {0}Functions_base.py > {0}Functions.py'.format(self.path_ayome)
+		os.system(cmd)
+		sys.path.append(self.path_ayome)
+		#---------------------------------------------------------------------
 
-		#---------- GaussianMixtureModel ------------------
-		if self.use_GPU:
-			from GPU.gmm import GaussianMixture
-		else:
-			from CPU.gmm import GaussianMixture
-
+		#-------GaussianMixtureModel ------------------
+		gmm import GaussianMixture
 		self.GMM = GaussianMixture
 		#---------------------------------------
-
-		#----------------------------------------------------------------------------------
+		#=======================================================================
 
 	def initialize_directories(self,dir_main):
 
@@ -1790,9 +1783,8 @@ if __name__ == "__main__":
 			isochrones_args=isochrones_args,
 			nc_cluster=[1],
 			nc_field=[1],
-			use_GPU=False,
 			path_amasijo=dir_repos+"Amasijo/",
-			path_mcmichael=dir_repos+"McMichael/",
+			path_ayome=dir_repos+"Ayome_GPU/",
 			path_kalkayotl=dir_repos+"Kalkayotl/",
 			reference_system="Galactic",
 			seed=12345)
