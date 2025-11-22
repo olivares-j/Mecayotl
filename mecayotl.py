@@ -291,7 +291,7 @@ class Mecayotl(object):
 		#---------------------------------------------------------------------
 
 		#-------GaussianMixtureModel ------------------
-		gmm import GaussianMixture
+		from gmm import GaussianMixture
 		self.GMM = GaussianMixture
 		#---------------------------------------
 		#=======================================================================
