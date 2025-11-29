@@ -44,6 +44,10 @@ from matplotlib.patches import Ellipse
 from matplotlib.colors import Normalize,TwoSlopeNorm
 from tqdm import tqdm
 
+#-------- Libraries --------
+from Amasijo import Amasijo
+#---------------------------
+
 #---------- Configure simbad --------------
 # Simbad.remove_votable_fields('coordinates')
 Simbad.add_votable_fields('velocity')
@@ -82,7 +86,6 @@ class Mecayotl(object):
 		nc_cluster=range(2,21),
 		nc_field=range(2,21),
 		path_ayome     = "/home/jolivares/Repos/Ayome_GPU/",
-		path_amasijo   = "/home/jolivares/Repos/Amasijo/",
 		path_kalkayotl = "/home/jolivares/Repos/Kalkayotl/",
 		cmap_probability="viridis_r",
 		cmap_features="viridis_r",
@@ -94,7 +97,6 @@ class Mecayotl(object):
 					"pmdec":0.,
 					"radial_velocity":0.
 					},
-		use_GPU=False,
 		mapper_names={
 		"radial_velocity":"dr3_radial_velocity",
 		"phot_g_mean_mag":"g",
@@ -223,7 +225,6 @@ class Mecayotl(object):
 
 		#------------- Repo paths -----------------
 		self.path_ayome      = path_ayome
-		self.path_amasijo    = path_amasijo
 		self.path_kalkayotl  = path_kalkayotl
 		#-------------------------------------------------
 
@@ -269,12 +270,6 @@ class Mecayotl(object):
 		self.apogee_columns = ["RA","DEC","GAIAEDR3_SOURCE_ID","VHELIO_AVG","VSCATTER","VERR"]
 		self.apogee_rename = {"VHELIO_AVG":"apogee_rv","GAIAEDR3_SOURCE_ID":"source_id"}
 		#----------------------------------------------------------------------------------
-
-		#----- Amasijo -------------------
-		sys.path.append(self.path_amasijo)
-		from Amasijo import Amasijo
-		self.Amasijo = Amasijo
-		#---------------------------------
 
 		#----- Kalkayotl--------------------------
 		sys.path.append(self.path_kalkayotl)
@@ -330,7 +325,7 @@ class Mecayotl(object):
 		file_smp  = self.file_smp_base.format(instance)
 
 		#----------- Generate true astrometry ---------------
-		ama = self.Amasijo(kalkayotl_args={
+		ama = Amasijo(kalkayotl_args={
 						"file":file_kalkayotl,
 						"statistic":self.kalkayotl_args["statistic"]},
 					  isochrones_args=self.isochrones_args,
@@ -953,10 +948,6 @@ class Mecayotl(object):
 		#-----------------------------------------------------------
 
 	def generate_synthetic(self,n_cluster=int(1e5),seeds=range(1)):
-
-		#-------- Libraries --------
-		from Amasijo import Amasijo
-		#---------------------------
 
 		#================= Generate syntehtic data ====================
 		for seed in seeds:
@@ -1783,14 +1774,13 @@ if __name__ == "__main__":
 			isochrones_args=isochrones_args,
 			nc_cluster=[1],
 			nc_field=[1],
-			path_amasijo=dir_repos+"Amasijo/",
-			path_ayome=dir_repos+"Ayome_GPU/",
+			path_ayome=dir_repos+"Ayome/",
 			path_kalkayotl=dir_repos+"Kalkayotl/",
 			reference_system="Galactic",
 			seed=12345)
 
 	mcy.run(
-		iterations=2,
+		iterations=1,
 		synthetic_seeds=[0],
 		n_samples_real=int(1e3),
 		n_samples_syn=int(1e3)
