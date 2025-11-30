@@ -44,9 +44,10 @@ from matplotlib.patches import Ellipse
 from matplotlib.colors import Normalize,TwoSlopeNorm
 from tqdm import tqdm
 
-#-------- Libraries --------
+#-------------- Amasijo libraries --------
 from Amasijo import Amasijo
-#---------------------------
+from Amasijo.Quality import ClassifierQuality
+#-----------------------------------------
 
 #---------- Configure simbad --------------
 # Simbad.remove_votable_fields('coordinates')
@@ -1167,10 +1168,6 @@ class Mecayotl(object):
 				# 0.999999998026825:10  # 6sigma
 				},
 		min_prob=0.682689492137086):
-
-		#-------- Libraries -------------------
-		from Quality import ClassifierQuality
-		#--------------------------------------
 
 		file_plot = self.file_qlt_base.format(covariate,metric,"pdf")
 		file_tex  = self.file_qlt_base.format(covariate,metric,"tex")
