@@ -98,6 +98,7 @@ class Mecayotl(object):
 					"pmdec":0.,
 					"radial_velocity":0.
 					},
+		observable_limits={},
 		mapper_names={
 		"radial_velocity":"dr3_radial_velocity",
 		"phot_g_mean_mag":"g",
@@ -120,6 +121,24 @@ class Mecayotl(object):
 		"phot_bp_mean_mag",
 		"phot_rp_mean_mag",
 		"ruwe"]
+
+		#--------------- Observable limits -------------------
+		default_observable_limits = {
+			"ra":{"inf":-np.inf,"sup":np.inf},
+			"dec":{"inf":-np.inf,"sup":np.inf},
+			"pmra":{"inf":-400.0,"sup":400.0},
+			"pmdec":{"inf":-400.0,"sup":400.0},
+			"parallax":{"inf":-100,"sup":100},
+			"radial_velocity":{"inf":-200.0,"sup":200.0}
+			}
+		for arg,val in default_observable_limits.items():
+			if not arg in observable_limits:
+				observable_limits[arg] = val
+
+		self.observable_limits = observable_limits
+		print("The following observable limits will be used:")
+		for k,v in self.observable_limits.items():
+			print("{0} : {1}".format(k,v))
 
 		#---------------- Members arguments ----------------------
 		members_default_args = {
@@ -255,18 +274,6 @@ class Mecayotl(object):
 		self.observables = gaia_observables
 		self.reference_system = reference_system
 
-		
-
-		#------------------ Limits --------------------------------------------
-		self.limits_observables = {
-			"ra":{"inf":-np.inf,"sup":np.inf},
-			"dec":{"inf":-np.inf,"sup":np.inf},
-			"pmra":{"inf":-400.0,"sup":400.0},
-			"pmdec":{"inf":-400.0,"sup":400.0},
-			"parallax":{"inf":-100,"sup":100},
-			"radial_velocity":{"inf":-200.0,"sup":200.0}
-			}
-
 		#----------- APOGEE -----------------------------------------------------------------
 		self.apogee_columns = ["RA","DEC","GAIAEDR3_SOURCE_ID","VHELIO_AVG","VSCATTER","VERR"]
 		self.apogee_rename = {"VHELIO_AVG":"apogee_rv","GAIAEDR3_SOURCE_ID":"source_id"}
@@ -338,11 +345,11 @@ class Mecayotl(object):
 
 		X = ama._generate_phase_space(n_stars=n_cluster)
 
-		df_as,_ = ama._generate_true_astrometry(X)
+		df_syn,_ = ama._generate_true_astrometry(X)
 		#----------------------------------------------------
 
 		#----- Rename columns ---------------------------
-		df_as.rename(columns={
+		df_syn.rename(columns={
 			ama.labels_true_as[0]:self.observables[1],#"ra",
 			ama.labels_true_as[1]:self.observables[2],#"dec",
 			ama.labels_true_as[2]:self.observables[3],#"parallax",
@@ -352,7 +359,14 @@ class Mecayotl(object):
 			},inplace=True)
 		#------------------------------------------------
 
-		df_as.to_csv(file_smp,index_label="source_id")
+		valid_syn = np.full(len(df_syn),fill_value=True)
+		for obs in self.OBS:
+			valid_syn &= df_syn[obs] > self.observable_limits[obs]["inf"]
+			valid_syn &= df_syn[obs] < self.observable_limits[obs]["sup"]
+
+		df_syn = df_syn.loc[valid_syn] 
+
+		df_syn.to_csv(file_smp,index_label="source_id")
 
 	def assemble_data(self,file_catalogue,file_members,
 					n_field=int(1e5),
@@ -370,9 +384,9 @@ class Mecayotl(object):
 
 		valid_cat = np.full(len(df_cat),fill_value=True)
 		for obs in self.OBS:
-			valid_cat &= (df_cat[obs] > self.limits_observables[obs]["inf"]) |\
+			valid_cat &= (df_cat[obs] > self.observable_limits[obs]["inf"]) |\
 						 (np.isnan(df_cat[obs]))
-			valid_cat &= (df_cat[obs] < self.limits_observables[obs]["sup"]) |\
+			valid_cat &= (df_cat[obs] < self.observable_limits[obs]["sup"]) |\
 						 (np.isnan(df_cat[obs]))
 
 		df_cat = df_cat.loc[valid_cat] 
@@ -398,8 +412,8 @@ class Mecayotl(object):
 		df_syn = pd.read_csv(file_smp,usecols=self.OBS)
 		valid_syn = np.full(len(df_syn),fill_value=True)
 		for obs in self.OBS:
-			valid_syn &= df_syn[obs] > self.limits_observables[obs]["inf"]
-			valid_syn &= df_syn[obs] < self.limits_observables[obs]["sup"]
+			valid_syn &= df_syn[obs] > self.observable_limits[obs]["inf"]
+			valid_syn &= df_syn[obs] < self.observable_limits[obs]["sup"]
 
 		mu_syn = df_syn.loc[valid_syn] 
 		sg_syn = np.zeros((len(mu_syn),6,6))
@@ -1762,6 +1776,7 @@ if __name__ == "__main__":
 		"bands":["G","BP","RP"],
 		"mass_prior":"Uniform"
 		}
+
 	
 	mcy = Mecayotl(
 			dir_base=dir_base,
