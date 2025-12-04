@@ -415,9 +415,10 @@ class Mecayotl(object):
 			valid_syn &= df_syn[obs] > self.observable_limits[obs]["inf"]
 			valid_syn &= df_syn[obs] < self.observable_limits[obs]["sup"]
 
-		mu_syn = df_syn.loc[valid_syn] 
+		print("There are {0} valid synthetic sources".format(len(valid_syn)))
+		idx_rnd  = np.random.choice(len(valid_syn),size=n_field,replace=False)
+		mu_syn = df_syn.loc[valid_syn[idx_rnd]]
 		sg_syn = np.zeros((len(mu_syn),6,6))
-		print("There are {0} valid synthetic sources".format(len(mu_syn)))
 		del df_syn
 		#-----------------------------------------------------------------
 
@@ -1668,7 +1669,8 @@ class Mecayotl(object):
 		synthetic_seeds=[0,1,2,3,4,5,6,7,8,9],
 		bins = [4.0,6.0,8.0,10.0,12.0,14.0,16.0,18.0,20.0],
 		covariate_limits = [4.0,22.0],
-		n_samples_real=int(1e3),
+		n_cluster_real=int(1e3),
+		n_field_real=int(1e3),
 		n_samples_syn=int(1e3),
 		minimum_nmin=100,
 		init_min_det=1e-3,
@@ -1717,8 +1719,8 @@ class Mecayotl(object):
 			#--------------- Real -------------------------------
 			self.run_real(file_catalogue=self.file_gaia,
 				file_members=file_members,
-				n_cluster=n_samples_real,
-				n_field=n_samples_real,
+				n_cluster=n_cluster_real,
+				n_field=n_field_real,
 				best_model_criterion=best_model_criterion,
 				replace_probabilities=replace_probabilities,
 				use_prior_probabilities=use_prior_probabilities,
@@ -1794,7 +1796,8 @@ if __name__ == "__main__":
 	mcy.run(
 		iterations=1,
 		synthetic_seeds=[0],
-		n_samples_real=int(1e3),
+		n_cluster_real=int(1e3),
+		n_field_real=int(1e3),
 		n_samples_syn=int(1e3)
 		)
 
