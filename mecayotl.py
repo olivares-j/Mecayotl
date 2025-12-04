@@ -417,7 +417,7 @@ class Mecayotl(object):
 
 		print("There are {0} valid synthetic sources".format(len(valid_syn)))
 		idx_rnd  = np.random.choice(len(valid_syn),size=n_field,replace=False)
-		mu_syn = df_syn.loc[valid_syn[idx_rnd]]
+		mu_syn = df_syn.loc[valid_syn].iloc[idx_rnd]
 		sg_syn = np.zeros((len(mu_syn),6,6))
 		del df_syn
 		#-----------------------------------------------------------------
