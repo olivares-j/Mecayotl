@@ -456,8 +456,8 @@ class Mecayotl(object):
 		#----------------------------------------------------
 
 		#---------- Random sample of field sources ------------------
-		msg_err_n_fld = "Error: The requested field number is larger than the filed population ({0}>{1})".format(n_field,len(idx_fld))
-		assert len(idx_fld)>n_field, msg_err_n_fld
+		msg_err_n_fld = "Error: The requested field number is larger than the filed population ({0} > {1})".format(n_field,len(idx_fld))
+		assert len(idx_fld)>= n_field, msg_err_n_fld
 		idx_rnd  = np.random.choice(idx_fld,size=n_field,replace=False)
 		mu_field = mu_data[idx_rnd]
 		#------------------------------------------------------------
