@@ -267,6 +267,44 @@ class Mecayotl(object):
 			print("\t{0} : {1}".format(k,v))
 		#----------------------------------------------------------
 
+		#---------------- Clean arguments default and fill -------------------
+		default_clean_args ={
+			"input":None,
+			"counts":[0,1,2,3],
+			"min_field_frac":0.1,
+			"conv_r_hat":1.1,
+			"tuning_iters":int(1e5),
+			"sample_iters":2000,
+			"target_accept":0.65,
+			"chains":4,
+			"cores":4,
+			"init_iters":int(1e6),
+			"init_refine":False,
+			"prior_predictive":True,
+			"prior_iters":1000,
+			"progressbar":True,
+			"nuts_sampler":"advi",
+			"random_seed":12345,
+			"FGMM_parameters":{
+					"location":None,
+					"scale":None,
+					"weights":None,
+					"field_scale":[20.,20.,20.,5.,5.,5.]},
+			"FGMM_hyper_parameters":{
+					"location":None,
+					"scale":None,
+					"weights":{"a":np.array([9,1])},
+					"eta":None},
+			}
+
+		for arg,val in default_clean_args.items():
+			if not arg in clean_args:
+				clean_args[arg] = val
+		print("The following clean arguments will be used:")
+		for k,v in clean_args.items():
+			print("\t{0} : {1}".format(k,v))
+		#--------------------------------------------------
+
 		#-------------------------------- Mappers ----------------------------------------------
 		# mapper_names maps canonical names used in this code to the column names found in the input data.
 		col_names = ["radial_velocity","phot_g_mean_mag","phot_rp_mean_mag","phot_bp_mean_mag"]
@@ -1723,11 +1761,7 @@ class Mecayotl(object):
 		df.to_csv(file_output)
 		#==================================================================
 
-	def clean_members(self,file_input,file_output,
-		clean_args = {},
-		parameters = {},
-		hyper_parameters={},
-		parameterization="central"):
+	def clean_members(self,file_input,file_output):
 		"""
 		A multi-stage cleaning routine that runs Kalkayotl Inference in iterative
 		FGMM (Finite GMM) steps. This method:
@@ -1736,51 +1770,6 @@ class Mecayotl(object):
 		- calls Kalkayotl inference (self.Inference) and saves statistics
 		- checks convergence diagnostics and stops early if field weight is negligible
 		"""
-		#---------------- Default arguments -------------------
-		default_clean_args ={
-			"input":None,
-			"counts":[0,1,2,3],
-			"min_field_frac":0.1,
-			"conv_r_hat":1.1,
-			"tuning_iters":int(1e5),
-			"sample_iters":2000,
-			"target_accept":0.65,
-			"chains":4,
-			"cores":4,
-			"init_iters":int(1e6),
-			"init_refine":False,
-			"prior_predictive":True,
-			"prior_iters":1000,
-			"progressbar":True,
-			"nuts_sampler":"advi",
-			"random_seed":12345}
-
-		default_parameters = {
-					"location":None,
-					"scale":None,
-					"weights":None,
-					"field_scale":[20.,20.,20.,5.,5.,5.]}
-
-		default_hyper_parameters={
-					"location":None,
-					"scale":None,
-					"weights":{"a":np.array([9,1])},
-					"eta":None}
-		#---------------------------------------------------
-
-		#------------- Use provided arguments ---------------
-		for default,given in zip(
-			[default_clean_args,
-			default_parameters,
-			default_hyper_parameters],
-			[clean_args,parameters,hyper_parameters]):
-			for arg,val in default.items():
-				if not arg in given:
-					given[arg] = val
-			print("The following arguments will be used:")
-			for k,v in given.items():
-				print("{0} : {1}".format(k,v))
-		#--------------------------------------------------
 
 		#--------------- Files -----------------------------
 		dir_base  = self.dir_main +"/Kalkayotl/"
@@ -1789,7 +1778,7 @@ class Mecayotl(object):
 		file_cls = dir_base + "{0}/Cluster_statistics.csv"
 		#---------------------------------------------------
 
-		for count in clean_args["counts"]:
+		for count in self.clean_args["counts"]:
 			#=============== Prepare files & directories ============
 			print("Cleaning count: {0}".format(count))
 			current = "FGMM_{0}".format(count)
@@ -1798,7 +1787,7 @@ class Mecayotl(object):
 
 			if count == 0:
 				# For the first iteration we copy the filtered members input
-				previous = clean_args["input"]
+				previous = self.clean_args["input"]
 
 				cmd_cp   = "cp {0} {1}".format(file_input,
 							file_mem.format(current))
@@ -1853,23 +1842,23 @@ class Mecayotl(object):
 
 				# Prepare prior and parameters for the run
 				kal.setup(prior="FGMM",
-						  parameters=parameters,
-						  hyper_parameters=hyper_parameters,
-						  parameterization=parameterization)
+						  parameters=self.clean_args["FGMM_parameters"],
+						  hyper_parameters=self.clean_args["FGMM_hyper_parameters"],
+						  parameterization="central")
 				# Execute sampling/inference with the configured options
 				kal.run(
-						tuning_iters=clean_args["tuning_iters"],
-						sample_iters=clean_args["sample_iters"],
-						target_accept=clean_args["target_accept"],
-						chains=clean_args["chains"],
-						cores=clean_args["cores"],
-						init_iters=clean_args["init_iters"],
-						init_refine=clean_args["init_refine"],
-						prior_predictive=clean_args["prior_predictive"],
-						prior_iters=clean_args["prior_iters"],
-						progressbar=clean_args["progressbar"],
-						nuts_sampler=clean_args["nuts_sampler"],
-						random_seed=clean_args["random_seed"])
+						tuning_iters=self.clean_args["tuning_iters"],
+						sample_iters=self.clean_args["sample_iters"],
+						target_accept=self.clean_args["target_accept"],
+						chains=self.clean_args["chains"],
+						cores=self.clean_args["cores"],
+						init_iters=self.clean_args["init_iters"],
+						init_refine=self.clean_args["init_refine"],
+						prior_predictive=self.clean_args["prior_predictive"],
+						prior_iters=self.clean_args["prior_iters"],
+						progressbar=self.clean_args["progressbar"],
+						nuts_sampler=self.clean_args["nuts_sampler"],
+						random_seed=self.clean_args["random_seed"])
 				kal.load_trace()
 				kal.convergence()
 				kal.plot_chains()
@@ -1890,7 +1879,7 @@ class Mecayotl(object):
 
 			#------------- Assess convergence ---------------------------------
 			mask = np.isfinite(df_cls["r_hat"])
-			condition = df_cls.loc[mask,"r_hat"] > clean_args["conv_r_hat"]
+			condition = df_cls.loc[mask,"r_hat"] > self.clean_args["conv_r_hat"]
 			not_converged = np.any(condition)
 			if not_converged:
 				print(df_cls.loc[condition,"r_hat"])
@@ -1901,7 +1890,7 @@ class Mecayotl(object):
 
 			#---------- Stop if the field is negligible ---------------
 			field_fraction = df_cls.loc["6D::weights[Field]","mean"]
-			negl_field = field_fraction < clean_args["min_field_frac"]
+			negl_field = field_fraction < self.clean_args["min_field_frac"]
 			ids_field = df_src.loc[df_src["label"] == "Field"].index.values
 			if negl_field or len(ids_field) == 0:
 				print("{0} has negligible field weight".format(current))
@@ -2097,8 +2086,7 @@ class Mecayotl(object):
 							args=self.members_args)
 				self.clean_members(
 							file_input=self.file_flt_mem,
-							file_output=self.file_cln_mem,
-							args=self.clean_args)
+							file_output=self.file_cln_mem)
 
 			self.run_kalkayotl(
 				distributions=self.kalkayotl_args["distribution"],
