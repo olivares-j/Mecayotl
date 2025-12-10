@@ -241,8 +241,10 @@ class Mecayotl(object):
 		for arg,val in default_clean_args.items():
 			if not arg in clean_args:
 				clean_args[arg] = val
+
+		self.clean_args = clean_args
 		print("The following clean arguments will be used:")
-		for k,v in clean_args.items():
+		for k,v in self.clean_args.items():
 			print("\t{0} : {1}".format(k,v))
 		#--------------------------------------------------
 
