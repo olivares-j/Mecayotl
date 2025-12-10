@@ -2093,7 +2093,7 @@ class Mecayotl(object):
 			if not os.path.exists(self.file_cln_mem):
 				self.filter_members(
 							file_input=file_members,
-							file_output=self.file_flt_members,
+							file_output=self.file_flt_mem,
 							args=self.members_args)
 				self.clean_members(
 							file_input=self.file_flt_mem,
