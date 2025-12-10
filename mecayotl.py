@@ -1868,7 +1868,7 @@ class Mecayotl(object):
 				kal.convergence()
 				kal.plot_chains()
 				kal.plot_prior_check()
-				kal.plot_model(chain=1)
+				kal.plot_model()
 				kal.save_statistics(hdi_prob=self.kalkayotl_args["hdi_prob"])
 			#=========================================================================
 			# Note: subsequent code assumes the existence of CSVs created by Kalkayotl
