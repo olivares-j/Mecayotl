@@ -1887,7 +1887,7 @@ class Mecayotl(object):
 			condition = df_cls.loc[mask,"r_hat"] > self.clean_args["conv_r_hat"]
 			not_converged = np.any(condition)
 			if not_converged:
-				print(df_cls.loc[mask[condition],"r_hat"])
+				print(df_cls.loc[mask].loc[condition,"r_hat"])
 				sys.exit("The {0} iteration did not converged!".format(current))
 			else:
 				print("The {0} iteration converged!".format(current))
