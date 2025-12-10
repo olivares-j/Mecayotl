@@ -125,6 +125,7 @@ class Mecayotl(object):
 		file_members,
 		file_gaia,
 		members_args={},
+		clean_args={},
 		isochrones_args={},
 		kalkayotl_args={},
 		nc_cluster=range(2,21),
@@ -207,6 +208,64 @@ class Mecayotl(object):
 			print("\t{0} : {1}".format(k,v))
 		#----------------------------------------------------------
 
+		#---------------- Clean arguments default and fill -------------------
+		default_clean_args ={
+			"input":None,
+			"counts":[0,1,2,3],
+			"min_field_frac":0.1,
+			"conv_r_hat":1.1,
+			"tuning_iters":int(1e5),
+			"sample_iters":2000,
+			"target_accept":0.65,
+			"chains":4,
+			"cores":4,
+			"init_iters":int(1e6),
+			"init_refine":False,
+			"prior_predictive":True,
+			"prior_iters":1000,
+			"progressbar":True,
+			"nuts_sampler":"advi",
+			"random_seed":12345,
+			"FGMM_parameters":{
+					"location":None,
+					"scale":None,
+					"weights":None,
+					"field_scale":[20.,20.,20.,5.,5.,5.]},
+			"FGMM_hyper_parameters":{
+					"location":None,
+					"scale":None,
+					"weights":{"a":np.array([9,1])},
+					"eta":None},
+			}
+
+		for arg,val in default_clean_args.items():
+			if not arg in clean_args:
+				clean_args[arg] = val
+		print("The following clean arguments will be used:")
+		for k,v in clean_args.items():
+			print("\t{0} : {1}".format(k,v))
+		#--------------------------------------------------
+
+		#---------------- Isochrones arguments default and fill -------
+		isochrones_default_args = {
+		"log_age": 8.0,
+		"metallicity":0.012,
+		"Av": 0.0,
+		"mass_limits":[0.1,2.0],
+		"bands":["G","BP","RP"],
+		"mass_prior":"Uniform"
+		}
+
+		for arg,val in isochrones_default_args.items():
+			if not arg in isochrones_args:
+				isochrones_args[arg] = val
+
+		self.isochrones_args = isochrones_args
+		print("The following isochrones_args will be used:")
+		for k,v in self.isochrones_args.items():
+			print("\t{0} : {1}".format(k,v))
+		#----------------------------------------------------------
+
 		#---------------- Kalkayotl arguments default and fill ----------
 		# These are defaults for the Bayesian inference wrapper used in 'clean_members' and 'run_kalkayotl'.
 		kalkayotl_default_args = {
@@ -247,63 +306,7 @@ class Mecayotl(object):
 			print("\t{0} : {1}".format(k,v))
 		#----------------------------------------------------------
 
-		#---------------- Isochrones arguments default and fill -------
-		isochrones_default_args = {
-		"log_age": 8.0,
-		"metallicity":0.012,
-		"Av": 0.0,
-		"mass_limits":[0.1,2.0],
-		"bands":["G","BP","RP"],
-		"mass_prior":"Uniform"
-		}
-
-		for arg,val in isochrones_default_args.items():
-			if not arg in isochrones_args:
-				isochrones_args[arg] = val
-
-		self.isochrones_args = isochrones_args
-		print("The following isochrones_args will be used:")
-		for k,v in self.isochrones_args.items():
-			print("\t{0} : {1}".format(k,v))
-		#----------------------------------------------------------
-
-		#---------------- Clean arguments default and fill -------------------
-		default_clean_args ={
-			"input":None,
-			"counts":[0,1,2,3],
-			"min_field_frac":0.1,
-			"conv_r_hat":1.1,
-			"tuning_iters":int(1e5),
-			"sample_iters":2000,
-			"target_accept":0.65,
-			"chains":4,
-			"cores":4,
-			"init_iters":int(1e6),
-			"init_refine":False,
-			"prior_predictive":True,
-			"prior_iters":1000,
-			"progressbar":True,
-			"nuts_sampler":"advi",
-			"random_seed":12345,
-			"FGMM_parameters":{
-					"location":None,
-					"scale":None,
-					"weights":None,
-					"field_scale":[20.,20.,20.,5.,5.,5.]},
-			"FGMM_hyper_parameters":{
-					"location":None,
-					"scale":None,
-					"weights":{"a":np.array([9,1])},
-					"eta":None},
-			}
-
-		for arg,val in default_clean_args.items():
-			if not arg in clean_args:
-				clean_args[arg] = val
-		print("The following clean arguments will be used:")
-		for k,v in clean_args.items():
-			print("\t{0} : {1}".format(k,v))
-		#--------------------------------------------------
+		
 
 		#-------------------------------- Mappers ----------------------------------------------
 		# mapper_names maps canonical names used in this code to the column names found in the input data.
