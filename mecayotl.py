@@ -185,7 +185,7 @@ class Mecayotl(object):
 		self.observable_limits = observable_limits
 		print("The following observable limits will be used:")
 		for k,v in self.observable_limits.items():
-			print("{0} : {1}".format(k,v))
+			print("\t{0} : {1}".format(k,v))
 
 		#---------------- Members arguments default and fill --------------
 		members_default_args = {
@@ -204,7 +204,7 @@ class Mecayotl(object):
 		self.members_args = members_args
 		print("The following members_args will be used:")
 		for k,v in self.members_args.items():
-			print("{0} : {1}".format(k,v))
+			print("\t{0} : {1}".format(k,v))
 		#----------------------------------------------------------
 
 		#---------------- Kalkayotl arguments default and fill ----------
@@ -244,7 +244,7 @@ class Mecayotl(object):
 		self.kalkayotl_args = kalkayotl_args
 		print("The following kalkayotl_args will be used:")
 		for k,v in self.kalkayotl_args.items():
-			print("{0} : {1}".format(k,v))
+			print("\t{0} : {1}".format(k,v))
 		#----------------------------------------------------------
 
 		#---------------- Isochrones arguments default and fill -------
@@ -264,7 +264,7 @@ class Mecayotl(object):
 		self.isochrones_args = isochrones_args
 		print("The following isochrones_args will be used:")
 		for k,v in self.isochrones_args.items():
-			print("{0} : {1}".format(k,v))
+			print("\t{0} : {1}".format(k,v))
 		#----------------------------------------------------------
 
 		#-------------------------------- Mappers ----------------------------------------------
