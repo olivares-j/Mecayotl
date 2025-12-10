@@ -1,16 +1,98 @@
 # Mecayotl
-Stellar group's membership determination based on Kalkayotl.
 
-## Installation
+Mecayotl is a pipeline to determine stellar group (open cluster) memberships
+based on Gaussian-mixture modeling and Bayesian cluster inference (via
+Kalkayotl). It coordinates data assembly from a Gaia-like catalogue,
+synthetic cluster generation (via Amasijo), model inference and diagnostic
+evaluation for probability thresholds.
 
-Get the repositories for Amasijo, Kalkayotl and McMichael.
+This repository contains a high-level orchestrator (mecayotl.py) that:
+- assembles and prepares data (catalogue + known members),
+- fits GMMs to field and cluster samples,
+- computes membership probabilities accounting for per-star uncertainties,
+- runs synthetic experiments to calibrate classifier thresholds,
+- interfaces with Kalkayotl for more involved Bayesian modeling of cluster parameters.
 
-Include in the right paths.
+## Requirements and environment
 
-`conda create -n mecayotl -c conda-forge python==3.10 pymc==5.4.1`
+This project uses several scientific Python packages and external repositories:
+- Python 3.10 (the code was tested with Python 3.10)
+- NumPy, SciPy, pandas, h5py
+- Astropy, astroquery
+- matplotlib, tqdm
+- Amasijo (external repository)
+- Kalkayotl (external repository)
+- PyGaia (for astrometry utilities)
+- The local repository contains a small GMM implementation (gmm.py) used by Mecayotl
 
-Activate the environement and run the code. It will prompt you to install the different dependencies. You will need to install isochrones and PyGaia in the environement.
+A recommended environment creation (example using conda):
 
+conda create -n mecayotl -c conda-forge pymc
+conda activate mecayotl
+
+You will also need to clone and place the following repositories in accessible paths:
+- Amasijo (used for synthetic cluster generation and classifier quality helpers)
+- Kalkayotl (Bayesian inference backend used by cleaning routines)
+- Optionally, the directory paths can be passed to Mecayotl at initialization
+  (see the example in the example block of mecayotl.py).
+
+Install PyGaia and isochrones into the environment as required by Amasijo/Kalkayotl.
+
+Note: mecayotl.py uses non-interactive matplotlib backend (Agg) and expects to be
+run on a system where it can create directories and write HDF5/CSV/PDF outputs.
+
+## Quick usage example
+
+1. Edit paths and filenames in the __main__ example at the bottom of mecayotl.py or
+   construct a Mecayotl object from another script, for example:
+
+from mecayotl import Mecayotl
+
+mcy = Mecayotl(
+    dir_base="/path/to/output/base",
+    file_gaia="/path/to/catalogue.fits",
+    file_members="/path/to/members.csv",
+    path_ayome="/path/to/Ayome/",
+    path_kalkayotl="/path/to/Kalkayotl/",
+    seed=12345)
+
+mcy.run(
+    iterations=1,
+    synthetic_seeds=[0],
+    n_cluster_real=int(1e3),
+    n_field_real=int(1e3),
+    n_samples_syn=int(1e3)
+)
+
+2. Inspect output directories created under dir_base/iter_*/ for:
+- Real/Data/data.h5 (assembled arrays and computed probabilities)
+- Real/Models/* (saved GMM models)
+- Classification/members_mecayotl.csv (selected candidates)
+- Classification/quality_*.pdf/.tex/.pkl (threshold calibration results)
+
+## Structure of important outputs
+
+- data.h5 contains arrays:
+  - ids, mu, sd, cr, ex: observables and their uncertainties/correlations
+  - mu_Cluster, sg_Cluster: synthetic cluster means and covariances
+  - mu_Field, sg_Field: drawn field subset
+  - prob_cls: computed membership probabilities (when produced)
+
+- Models are saved as HDF5 files per (instance, case, n_components) with keys:
+  - pros (weights), means, covs, dets, aic, bic, nmn
+
+## Notes and best practices
+
+- Ensure the paths to Amasijo and Kalkayotl are correct and those repositories are installed.
+- The pipeline is I/O intensive and may create many files and directories; monitor disk usage.
+- For reproducibility, always set seed when instantiating Mecayotl.
+- Large runs may require increasing memory or splitting computations (the code supports chunking).
+- If you plan to refactor or reuse parts of the code, consider extracting I/O, plotting, and inference
+  into separate modules to simplify testing.
+
+## License
+
+Mecayotl is distributed under the GNU General Public License v3 (see the top of mecayotl.py for details).
 
 ### Citation
 If you use Mecayotl, please cite the following articles.
@@ -50,3 +132,4 @@ archivePrefix = {arXiv},
       adsnote = {Provided by the SAO/NASA Astrophysics Data System}
 }
 ```
+
