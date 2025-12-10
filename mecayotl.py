@@ -2093,7 +2093,7 @@ class Mecayotl(object):
 			if not os.path.exists(self.file_cln_mem):
 				self.filter_members(
 							file_input=file_members,
-							file_output=self.file_filtered_members,
+							file_output=self.file_flt_members,
 							args=self.members_args)
 				self.clean_members(
 							file_input=self.file_flt_mem,
@@ -2139,7 +2139,7 @@ class Mecayotl(object):
 			#------------- New members -----------------------------
 			self.select_members(instance="Real")
 			#-------------------------------------------------------
-		print(20*"="+" END "+20*"=")
+		print(30*"="+" END "+30*"=")
 
 
 
