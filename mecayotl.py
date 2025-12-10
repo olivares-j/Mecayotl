@@ -306,7 +306,8 @@ class Mecayotl(object):
 		#------------------------------------------
 
 		#---------------- Files --------------------------------------------------
-		self.file_mem_kal    = dir_main + "/Kalkayotl/members.csv"
+		self.file_flt_mem    = dir_main + "/Kalkayotl/filtered_members.csv"
+		self.file_cln_mem    = dir_main + "/Kalkayotl/clean_members.csv"
 		self.file_par_kal    = dir_main + "/Kalkayotl/{0}/Cluster_statistics.csv".format(
 			self.kalkayotl_args["distribution"])
 		self.file_smp_base   = dir_main + "/{0}/Data/members_synthetic.csv"
@@ -1481,14 +1482,14 @@ class Mecayotl(object):
 						use_prior=use_prior_probabilities)
 		#----------------------------------------------------------
 
-	def fileter_members(self,file_members,args): 
+	def filter_members(self,file_input,file_output,args): 
 
 		#============= Load members =========================
 		#----- Load catalogue ------------------------
-		if '.csv' in file_members:
-			df = pd.read_csv(file_members)
-		elif ".fits" in file_members:
-			dat = Table.read(file_members, format='fits')
+		if '.csv' in file_input:
+			df = pd.read_csv(file_input)
+		elif ".fits" in file_input:
+			dat = Table.read(file_input, format='fits')
 			df  = dat.to_pandas()
 			del dat
 		else:
@@ -1518,7 +1519,7 @@ class Mecayotl(object):
 		err_msg="There are discrepant rvs missing uncertainties and values!")
 		#---------------------------------------------------------------------
 
-		print("Replacing minumum and maximum uncertainties ...")
+		print("Replacing minimum and maximum uncertainties ...")
 		#----------- Set minimum uncertainty -------------------------------------
 		condition = df["radial_velocity_error"] < args["rv_error_limits"][0]
 		df.loc[condition,"radial_velocity_error"] = args["rv_error_limits"][0]
@@ -1530,22 +1531,22 @@ class Mecayotl(object):
 		df.loc[condition,"radial_velocity_error"]  = np.nan
 		#-------------------------------------------------------------------------
 
-		#------------- Binaries -------------------------------
-		condition = df.loc[:,"ruwe"] > args["ruwe_threshold"]
-		df.loc[condition,"radial_velocity"] = np.nan
-		df.loc[condition,"radial_velocity_error"]  = np.nan
-		print("Binaries: {0}".format(sum(condition)))
+		#------------- Drop Binaries --------------------------
+		n_binaries = sum(df["ruwe"] >= args["ruwe_threshold"])
+		if n_binaries > 0:
+			df = df.loc[df["ruwe"] < args["ruwe_threshold"]]
+		print("Dropped binaries: {0}".format(n_binaries))
 		#-----------------------------------------------------
 
-		#---------- Outliers --------------------------------------------------------
+		#---------- Drop outliers --------------------------------------------------------
 		mu_rv = np.nanmean(df["radial_velocity"])
 		sd_rv = np.nanstd(df["radial_velocity"])
 		print("Radial velocity: {0:2.1f} +/- {1:2.1f} km/s".format(mu_rv,sd_rv))
 		maha_dst = np.abs(df["radial_velocity"] - mu_rv)/sd_rv
-		condition = maha_dst > args["rv_sd_clipping"]
-		df.loc[condition,"radial_velocity"] = np.nan
-		df.loc[condition,"radial_velocity_error"]  = np.nan
-		print("Outliers: {0}".format(sum(condition)))
+		n_rvout = sum(maha_dst >= args["rv_sd_clipping"])
+		if n_rvout > 0:
+			df = df.loc[maha_dst < args["rv_sd_clipping"]]
+		print("Dropped RV outliers: {0}".format(n_rvout))
 		#----------------------------------------------------------------------------
 
 		#------------------------ Allow RV missing ------------------------
@@ -1554,12 +1555,199 @@ class Mecayotl(object):
 				inplace=True)
 		#------------------------------------------------------------------
 
-		print("Saving file ...")
-		#------- Save as csv ---------
-		df.to_csv(self.file_mem_kal)
-		#-----------------------------
-		del df
+		print("Saving filtered members ...")
+		df.to_csv(file_output)
 		#==================================================================
+
+	def clean_members(self,file_input,file_output,
+		clean_args = {},
+		parameters = {},
+		hyper_parameters={},
+		parameterization="central"):
+
+		#---------------- Default arguments -------------------
+		default_clean_args ={
+			"input":None,
+			"counts":[0,1,2,3],
+			"min_field_frac":0.1,
+			"conv_r_hat":1.1,
+			"tuning_iters":int(1e5),
+			"sample_iters":2000,
+			"target_accept":0.65,
+			"chains":4,
+			"cores":4,
+			"init_iters":int(1e6),
+			"init_refine":False,
+			"prior_predictive":True,
+			"prior_iters":1000,
+			"progressbar":True,
+			"nuts_sampler":"advi",
+			"random_seed":12345}
+
+		default_parameters = {
+					"location":None,
+					"scale":None,
+					"weights":None,
+					"field_scale":[20.,20.,20.,5.,5.,5.]}
+
+		default_hyper_parameters={
+					"location":None,
+					"scale":None,
+					"weights":{"a":np.array([9,1])},
+					"eta":None}
+		#---------------------------------------------------
+
+		#------------- Use provided arguments ---------------
+		for default,given in zip(
+			[default_clean_args,
+			default_parameters,
+			default_hyper_parameters],
+			[clean_args,parameters,hyper_parameters]):
+			for arg,val in default.items():
+				if not arg in given:
+					given[arg] = val
+			print("The following arguments will be used:")
+			for k,v in given.items():
+				print("{0} : {1}".format(k,v))
+		#--------------------------------------------------
+
+		#--------------- Files -----------------------------
+		dir_base  = self.dir_main +"/Kalkayotl/"
+		file_mem = dir_base + "{0}/members.csv"
+		file_src = dir_base + "{0}/Sources_statistics.csv"
+		file_cls = dir_base + "{0}/Cluster_statistics.csv"
+		#---------------------------------------------------
+
+		for count in clean_args["counts"]:
+			#=============== Prepare files & directories ============
+			print("Cleaning count: {0}".format(count))
+			current = "FGMM_{0}".format(count)
+			dir_crr = dir_base + current  + "/"
+			os.makedirs(dir_crr,exist_ok=True)
+
+			if count == 0:
+				previous = clean_args["input"]
+
+				cmd_cp   = "cp {0} {1}".format(file_input,
+							file_mem.format(current))
+				os.system(cmd_cp)
+
+			else:
+				previous = "FGMM_{0}".format(count-1)
+
+				#---------- Read members & classification ----------
+				df_src = pd.read_csv(file_src.format(previous),
+								usecols=["source_id","label"])
+				df_src.set_index(["source_id","label"],inplace=True)
+				df_mem = pd.read_csv(file_input)
+				df_mem.set_index("source_id",inplace=True)
+				#---------------------------------------------------
+
+				#----------- Drop field and label -------
+				df_src.drop(index="Field",level="label",
+							inplace=True,errors="ignore")
+				#----------------------------------------
+
+				#----------------- Merge ----------------------
+				df = pd.merge(left=df_src,right=df_mem,
+							left_index=True,right_index=True,
+							how="left")
+				#----------------------------------------------
+
+				#----------- Save file ------------
+				df.to_csv(file_mem.format(current))
+				#----------------------------------
+			#=============================================================
+				
+			#======================== Infer model ======================================
+			if not os.path.exists(file_src.format(current)):
+				#--------- Initialize the inference module --------------------------
+				kal = self.Inference(
+								dimension=6,
+								dir_out=dir_crr,
+								zero_points=self.zero_points.copy(),
+								indep_measures=False,
+								reference_system=self.reference_system,
+								sampling_space=self.kalkayotl_args["sampling_space"],
+								velocity_model=self.kalkayotl_args["velocity_model"])
+				#--------------------------------------------------------------------
+
+				#-------- Load the data set ------------------------------------------
+				# It will use the Gaia column names by default.
+				kal.load_data(file_mem.format(current),
+							sky_error_factor=self.kalkayotl_args["sky_error_factor"])
+				#---------------------------------------------------------------------
+
+				kal.setup(prior="FGMM",
+						  parameters=parameters,
+						  hyper_parameters=hyper_parameters,
+						  parameterization=parameterization)
+				kal.run(
+						tuning_iters=clean_args["tuning_iters"],
+						sample_iters=clean_args["sample_iters"],
+						target_accept=clean_args["target_accept"],
+						chains=clean_args["chains"],
+						cores=clean_args["cores"],
+						init_iters=clean_args["init_iters"],
+						init_refine=clean_args["init_refine"],
+						prior_predictive=clean_args["prior_predictive"],
+						prior_iters=clean_args["prior_iters"],
+						progressbar=clean_args["progressbar"],
+						nuts_sampler=clean_args["nuts_sampler"],
+						random_seed=clean_args["random_seed"])
+				kal.load_trace()
+				kal.convergence()
+				kal.plot_chains()
+				kal.plot_prior_check()
+				kal.plot_model(chain=1)
+				kal.save_statistics(hdi_prob=self.kalkayotl_args["hdi_prob"])
+			#=========================================================================
+
+			#================ Verify convergence and minimum weight ===================
+			#-------- Read statistics ---------------------
+			df_cls = pn.read_csv(file_cls.format(current))
+			df_cls.set_index("Parameter",inplace=True)
+			df_src = pn.read_csv(file_src.format(current))
+			df_src.set_index("source_id",inplace=True)
+			#---------------------------------------------
+
+			#------------- Asses convergence ---------------------------------
+			mask = np.isfinite(df_cls["r_hat"])
+			condition = df_cls.loc[mask,"r_hat"] > clean_args["conv_r_hat"]
+			not_converged = np.any(condition)
+			if not_converged:
+				print(df_cls.loc[condition,"r_hat"])
+				sys.exit("The {0} iteration did not converged!".format(current))
+			else:
+				print("The {0} iteration converged!".format(current))
+			#-----------------------------------------------------------------
+
+			#---------- Stop if the field is negligible ---------------
+			field_fraction = df_cls.loc["6D::weights[Field]","mean"]
+			negl_field = field_fraction < clean_args["min_field_frac"]
+			ids_field = df_src.loc[df_src["label"] == "Field"].index.values
+			if negl_field or len(ids_field) == 0:
+				print("{0} has negligible field weight".format(current))
+
+				#----------- Drop field and label -------
+				df_src = df_src.loc[:,["source_id","label"]]
+				df_src.set_index(["source_id","label"],inplace=True)
+				df_src.drop(index="Field",level="label",
+							inplace=True,errors="ignore")
+				#----------------------------------------
+
+				#----------------- Merge ----------------------
+				df = pd.merge(left=df_src,right=df_mem,
+							left_index=True,right_index=True,
+							how="left")
+				#----------------------------------------------
+
+				#----------- Save file ------------
+				df.to_csv(self.file_cln_mem)
+				#----------------------------------
+				break
+			#------------------------------------------------------------
+			#==============================================================================
 
 	def run_kalkayotl(self,
 		distributions = ["Gaussian","StudentT","CGMM"],
@@ -1603,7 +1791,7 @@ class Mecayotl(object):
 		zero_points = self.zero_points.copy()
 		zero_points["radial_velocity"] = zero_points.pop("radial_velocity")
 
-		#--------------------- Loop over prior types ------------------------------------
+		#--------------------- Loop over distribution types ------------------------------------
 		for distribution in list_of_distributions:
 
 			if distribution["name"] not in distributions:
@@ -1633,7 +1821,7 @@ class Mecayotl(object):
 
 			#-------- Load the data set --------------------
 			# It will use the Gaia column names by default.
-			kal.load_data(self.file_mem_kal,
+			kal.load_data(self.file_cln_mem,
 						sky_error_factor=args["sky_error_factor"])
 			#------ Prepares the model -------------------
 			kal.setup(prior=distribution["name"],
@@ -1709,14 +1897,21 @@ class Mecayotl(object):
 				#--------------------------------------------------------------
 			#----------------------------------------------------
 
-			#----------- Kalkayotl ------------------------------
-			if not os.path.exists(self.file_mem_kal):
-				self.fileter_members(file_members=file_members,
-					args=self.members_args)
+			#----------- Kalkayotl --------------------------------
+			if not os.path.exists(self.file_cln_mem):
+				self.filter_members(
+							file_input=file_members,
+							file_output=self.file_filtered_members,
+							args=self.members_args)
+				self.clean_members(
+							file_input=self.file_flt_mem,
+							file_output=self.file_cln_mem,
+							args=self.clean_args)
 
-			self.run_kalkayotl(distributions=self.kalkayotl_args["distribution"],
+			self.run_kalkayotl(
+				distributions=self.kalkayotl_args["distribution"],
 				args=self.kalkayotl_args)
-			#-----------------------------------------------------
+			#-------------------------------------------------------
 
 			#--------------- Real -------------------------------
 			self.run_real(file_catalogue=self.file_gaia,
@@ -1768,6 +1963,15 @@ if __name__ == "__main__":
 	file_members  = dir_cats + "Rup147_members.csv"
 	#--------------------------------------------------------------
 
+	members_args = {
+		"g_mag_limit":22.0,
+		"rv_error_limits":[0.1,2.0],
+		"ruwe_threshold":1.4,
+		"prob_threshold":0.999936,
+		"rv_sd_clipping":3.0,
+		"allow_rv_missing":False,
+		}
+
 	kalkayotl_args = {
 	"distribution":"CGMM"
 	}
@@ -1786,6 +1990,7 @@ if __name__ == "__main__":
 			dir_base=dir_base,
 			file_gaia=file_gaia,
 			file_members=file_members,
+			members_args=members_args,
 			kalkayotl_args=kalkayotl_args,
 			isochrones_args=isochrones_args,
 			nc_cluster=[1],
