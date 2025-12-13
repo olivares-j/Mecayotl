@@ -1882,6 +1882,11 @@ class Mecayotl(object):
 			df_src.set_index("source_id",inplace=True)
 			#---------------------------------------------
 
+			#------------- Read members --------------------
+			df_mem = pd.read_csv(file_mem.format(current))
+			df_mem.set_index("source_id",inplace=True)
+			#------------------------------------------------
+
 			#------------- Assess convergence ---------------------------------
 			mask = np.isfinite(df_cls["r_hat"])
 			condition = df_cls.loc[mask,"r_hat"] > self.clean_args["conv_r_hat"]
