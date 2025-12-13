@@ -1901,11 +1901,14 @@ class Mecayotl(object):
 				print("{0} has negligible field weight".format(current))
 
 				#----------- Drop field and label -------
-				df_src = df_src.loc[:,["source_id","label"]]
-				df_src.set_index(["source_id","label"],inplace=True)
+				df_src.set_index(["source_id","label"],
+							inplace=True)
 				df_src.drop(index="Field",level="label",
 							inplace=True,errors="ignore")
-				#----------------------------------------
+				df_src.reset_index(inplace=True)
+				df_src = df_src.loc[:,["source_id","label"]]
+				df_src.set_index("source_id",inplace=True)
+				#----------------------------------------------
 
 				#----------------- Merge ----------------------
 				df = pd.merge(left=df_src,right=df_mem,
