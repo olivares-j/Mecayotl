@@ -295,7 +295,7 @@ class Mecayotl(object):
 		"max_gmm_components":2,
 		"hdi_prob":0.95,
 		"sampling_space":"physical",
-		"sky_error_factor":1e6
+		"sky_error_factor":1.e6
 		}
 
 		for arg,val in kalkayotl_default_args.items():
@@ -1835,8 +1835,8 @@ class Mecayotl(object):
 								zero_points=self.zero_points.copy(),
 								indep_measures=False,
 								reference_system=self.reference_system,
-								sampling_space=self.kalkayotl_args["sampling_space"],
-								velocity_model=self.kalkayotl_args["velocity_model"])
+								sampling_space=self.kalkayotl_args["sampling_space"]
+								)
 				#--------------------------------------------------------------------
 
 				#-------- Load the data set ------------------------------------------
@@ -2093,11 +2093,13 @@ class Mecayotl(object):
 
 			#----------- Kalkayotl --------------------------------
 			# If clean_members outcome missing, run filter_members and clean_members
-			if not os.path.exists(self.file_cln_mem):
+			if not os.path.exists(self.file_flt_mem):
 				self.filter_members(
 							file_input=file_members,
 							file_output=self.file_flt_mem,
 							args=self.members_args)
+				
+			if not os.path.exists(self.file_cln_mem):
 				self.clean_members(
 							file_input=self.file_flt_mem,
 							file_output=self.file_cln_mem)
