@@ -1842,7 +1842,7 @@ class Mecayotl(object):
 				kal.setup(prior="FGMM",
 						  parameters=self.clean_args["FGMM_parameters"],
 						  hyper_parameters=self.clean_args["FGMM_hyper_parameters"],
-						  parameterization="central")
+						  parametrization="central")
 				# Execute sampling/inference with the configured options
 				kal.run(
 						tuning_iters=self.clean_args["tuning_iters"],
