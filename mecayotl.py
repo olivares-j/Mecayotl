@@ -1989,7 +1989,7 @@ class Mecayotl(object):
 			#------------------------------------
 
 			#--------- Initialize the inference module (Kalkayotl) ------------------------
-			kal = self.Inference(dimension=6,
+			kal = Inference(dimension=6,
 							dir_out=dir_out,
 							zero_points=zero_points,
 							indep_measures=False,
@@ -2004,7 +2004,7 @@ class Mecayotl(object):
 			kal.setup(prior=distribution["name"],
 					  parameters=distribution["parameters"],
 					  hyper_parameters=distribution["hyper_parameters"],
-					  parameterization=args["parameterization"])
+					  parametrization=args["parametrization"])
 
 			# Run the full inference with provided options and save statistics/plots.
 			kal.run(
