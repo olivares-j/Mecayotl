@@ -65,6 +65,7 @@ from tqdm import tqdm
 #-------------- Amasijo libraries (external) --------
 from Amasijo import Amasijo
 from Amasijo.Quality import ClassifierQuality
+from kalkayotl import inference as Inference
 #-----------------------------------------
 
 # Configure Simbad query to include velocity fields when used.
@@ -131,7 +132,6 @@ class Mecayotl(object):
 		nc_cluster=range(2,21),
 		nc_field=range(2,21),
 		path_ayome     = "/home/jolivares/Repos/Ayome_GPU/",
-		path_kalkayotl = "/home/jolivares/Repos/Kalkayotl/",
 		cmap_probability="viridis_r",
 		cmap_features="viridis_r",
 		zero_points={
@@ -340,7 +340,6 @@ class Mecayotl(object):
 
 		#------------- Repo paths -----------------
 		self.path_ayome      = path_ayome
-		self.path_kalkayotl  = path_kalkayotl
 		#-------------------------------------------------
 
 		#------------- Files  -------------------------
@@ -376,12 +375,6 @@ class Mecayotl(object):
 		self.apogee_columns = ["RA","DEC","GAIAEDR3_SOURCE_ID","VHELIO_AVG","VSCATTER","VERR"]
 		self.apogee_rename = {"VHELIO_AVG":"apogee_rv","GAIAEDR3_SOURCE_ID":"source_id"}
 		#------------------------------------------------------------------------
-
-		#----- Kalkayotl: add path & import its Inference class --------------
-		sys.path.append(self.path_kalkayotl)
-		from kalkayotl.inference import Inference
-		self.Inference = Inference
-		#-----------------------------------------
 
 		#============================== Ayome ================================
 		# The code expects a generated Python file under path_ayome that contains
@@ -1829,7 +1822,7 @@ class Mecayotl(object):
 			#======================== Infer model ======================================
 			if not os.path.exists(file_src.format(current)):
 				#--------- Initialize the inference module (Kalkayotl wrapper) --------------------------
-				kal = self.Inference(
+				kal = Inference(
 								dimension=6,
 								dir_out=dir_crr,
 								zero_points=self.zero_points.copy(),
@@ -2195,7 +2188,6 @@ if __name__ == "__main__":
 			nc_cluster=[1],
 			nc_field=[1],
 			path_ayome=dir_repos+"Ayome/",
-			path_kalkayotl=dir_repos+"Kalkayotl/",
 			reference_system="Galactic",
 			seed=12345)
 
