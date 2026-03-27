@@ -27,11 +27,14 @@ This project uses several scientific Python packages and external repositories:
 
 A recommended environment creation (example using conda):
 
-conda create -n mecayotl -c conda-forge pymc
+conda create -n mecayotl -c conda-forge python==3.13 pymc scipy astropy pandas h5py dill extinction tqdm numba astroquery scikit-learn orjson emcee corner
 conda activate mecayotl
+conda install -c conda-forge asciitree configobj pytables
 
-You will also need to clone and place the following repositories in accessible paths:
-- Amasijo (used for synthetic cluster generation and classifier quality helpers)
+You will also need to instal the following packages:
+- pygaia for synthetic data generation
+- isochrones for synthetic data generation
+- Amasijo for synthetic cluster generation and classifier quality helpers)
 - Kalkayotl (Bayesian inference backend used by cleaning routines)
 - Optionally, the directory paths can be passed to Mecayotl at initialization
   (see the example in the example block of mecayotl.py).

@@ -61,11 +61,11 @@ from matplotlib import lines as mlines
 from matplotlib.patches import Ellipse
 from matplotlib.colors import Normalize,TwoSlopeNorm
 from tqdm import tqdm
+import kalkayotl
 
 #-------------- Amasijo libraries (external) --------
 from Amasijo import Amasijo
 from Amasijo.Quality import ClassifierQuality
-from kalkayotl import inference as Inference
 #-----------------------------------------
 
 # Configure Simbad query to include velocity fields when used.
@@ -219,12 +219,14 @@ class Mecayotl(object):
 			"target_accept":0.65,
 			"chains":4,
 			"cores":4,
+			"init_method":"fullrank_advi",
 			"init_iters":int(1e6),
 			"init_refine":False,
+			"init_tracker":False,
 			"prior_predictive":True,
 			"prior_iters":1000,
 			"progressbar":True,
-			"nuts_sampler":"advi",
+			"nuts_sampler":"fullrank_advi",
 			"random_seed":12345,
 			"FGMM_parameters":{
 					"location":None,
@@ -274,22 +276,23 @@ class Mecayotl(object):
 		"distribution":"Gaussian",
 		"statistic":"mean",
 		"tuning_iters":2000,
-		"sample_iters":1000,
+		"sample_iters":2000,
 		"target_accept":0.65,
 		"chains":2,
 		"cores":2,
 		"step":None,
 		"step_size":1e-3,
-		"init_method":"advi+adapt_diag",
+		"init_method":"fullrank_advi",
 		"init_iters":int(1e6),
+		"init_tracker":False,
 		"init_absolute_tol":5e-3,
 		"init_relative_tol":1e-5,
 		"init_plot_iters":int(1e4),
-		"init_refine":False,
+		"init_refine":True,
 		"prior_predictive":False,
-		"nuts_sampler":"pymc",
+		"nuts_sampler":"fullrank_advi",
 		"random_seed":None,
-		"parameterization":"central",
+		"parametrization":"central",
 		"velocity_model":"joint",
 		"min_gmm_components":2,
 		"max_gmm_components":2,
@@ -1796,8 +1799,9 @@ class Mecayotl(object):
 				previous = "FGMM_{0}".format(count-1)
 
 				#---------- Read members & classification ----------
-				df_src = pd.read_csv(file_src.format(previous),
-								usecols=["source_id","label"])
+				df_src = pd.read_csv(file_src.format(previous))
+				df_src = df_src.groupby("statistic").get_group("mean")
+				df_src = df_src.loc[:,["source_id","label"]]
 				df_src.set_index(["source_id","label"],inplace=True)
 				df_mem = pd.read_csv(file_input)
 				df_mem.set_index("source_id",inplace=True)
@@ -1822,7 +1826,7 @@ class Mecayotl(object):
 			#======================== Infer model ======================================
 			if not os.path.exists(file_src.format(current)):
 				#--------- Initialize the inference module (Kalkayotl wrapper) --------------------------
-				kal = Inference(
+				kal = kalkayotl.inference.Inference(
 								dimension=6,
 								dir_out=dir_crr,
 								zero_points=self.zero_points.copy(),
@@ -1850,8 +1854,10 @@ class Mecayotl(object):
 						target_accept=self.clean_args["target_accept"],
 						chains=self.clean_args["chains"],
 						cores=self.clean_args["cores"],
+						init_method=self.clean_args["init_method"],
 						init_iters=self.clean_args["init_iters"],
 						init_refine=self.clean_args["init_refine"],
+						init_tracker=self.clean_args["init_tracker"],
 						prior_predictive=self.clean_args["prior_predictive"],
 						prior_iters=self.clean_args["prior_iters"],
 						progressbar=self.clean_args["progressbar"],
@@ -1872,6 +1878,7 @@ class Mecayotl(object):
 			df_cls = pd.read_csv(file_cls.format(current))
 			df_cls.set_index("Parameter",inplace=True)
 			df_src = pd.read_csv(file_src.format(current))
+			df_src = df_src.groupby("statistic").get_group("mean")
 			df_src.set_index("source_id",inplace=True)
 			#---------------------------------------------
 
@@ -1895,11 +1902,13 @@ class Mecayotl(object):
 			field_fraction = df_cls.loc["6D::weights[Field]","mean"]
 			negl_field = field_fraction < self.clean_args["min_field_frac"]
 			ids_field = df_src.loc[df_src["label"] == "Field"].index.values
+
 			if negl_field or len(ids_field) == 0:
 				print("{0} has negligible field weight".format(current))
 
 				#----------- Drop field and label -------
 				df_src.reset_index(inplace=True)
+				print("src A",df_src.shape)
 				df_src.set_index(["source_id","label"],
 							inplace=True)
 				df_src.drop(index="Field",level="label",
@@ -1989,7 +1998,7 @@ class Mecayotl(object):
 			#------------------------------------
 
 			#--------- Initialize the inference module (Kalkayotl) ------------------------
-			kal = Inference(dimension=6,
+			kal = kalkayotl.inference.Inference(dimension=6,
 							dir_out=dir_out,
 							zero_points=zero_points,
 							indep_measures=False,
@@ -2013,14 +2022,13 @@ class Mecayotl(object):
 					target_accept=args["target_accept"],
 					chains=args["chains"],
 					cores=args["cores"],
-					step=args["step"],
 					step_size=args["step_size"],
 					init_method=args["init_method"],
 					init_iters=args["init_iters"],
 					init_absolute_tol=args["init_absolute_tol"],
 					init_relative_tol=args["init_relative_tol"],
-					init_plot_iters=args["init_plot_iters"],
 					init_refine=args["init_refine"],
+					init_tracker=args["init_tracker"],
 					prior_predictive=args["prior_predictive"],
 					nuts_sampler=args["nuts_sampler"],
 					random_seed=args["random_seed"],
