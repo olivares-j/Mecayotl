@@ -659,11 +659,12 @@ class Mecayotl(object):
 					max_iter=10000,
 					rho=1.0,
 					tol_covariance=1e-2,
-					init_tol=1e-3,
-					init_n_trials=10,
 					init_params="GMM",
-					init_min_det=1e-3,
+					init_tol=1e-3,
 					init_reg_covar=1e-2,
+					init_max_iter=100,
+					init_min_det=1e-3,
+					init_n_trials=10,
 					threads_per_block=32):
 		"""
 		Fit Gaussian Mixture Models (GMM) to either the Field or Cluster
@@ -720,11 +721,12 @@ class Mecayotl(object):
 				max_iter=max_iter,
 				rho=rho,
 				tol_covariance=tol_covariance,
-				init_tol=init_tol,
-				init_n_trials=init_n_trials,
 				init_params="GMM",
-				init_min_det=init_min_det,
+				init_tol=init_tol,
 				init_reg_covar=init_reg_covar,
+				init_max_iter=init_max_iter,
+				init_min_det=init_min_det,
+				init_n_trials=init_n_trials,
 				random_state=self.random_state)
 			#--------------------------------------------------------------------
 
@@ -1627,11 +1629,12 @@ class Mecayotl(object):
 				max_iter=10000,
 				rho=1.0,
 				tol_covariance=1e-2,
-				init_tol=1e-3,
-				init_n_trials=10,
 				init_params="GMM",
-				init_min_det=1e-3,
+				init_tol=1e-3,
 				init_reg_covar=1e-2,
+				init_max_iter=100,
+				init_min_det=1e-3,
+				init_n_trials=10,
 				threads_per_block=32,
 				minimum_nmin=100,
 				chunks=1):
@@ -1667,11 +1670,12 @@ class Mecayotl(object):
 					max_iter=max_iter,
 					rho=rho,
 					tol_covariance=tol_covariance,
-					init_tol=init_tol,
-					init_n_trials=init_n_trials,
 					init_params=init_params,
-					init_min_det=init_min_det,
+					init_tol=init_tol,
 					init_reg_covar=init_reg_covar,
+					init_max_iter=init_max_iter,
+					init_min_det=init_min_det,
+					init_n_trials=init_n_trials,
 					threads_per_block=threads_per_block)
 		#-------------------------------------------------
 
@@ -2092,10 +2096,12 @@ class Mecayotl(object):
 		max_iter=10000,
 		rho=1.0,
 		tol_covariance=1e-2,
+		init_params="GMM",
 		init_tol=1e-3,
-		init_n_trials=10,
-		init_min_det=1e-3,
 		init_reg_covar=1e-2,
+		init_max_iter=100,
+		init_min_det=1e-3,
+		init_n_trials=10,
 		threads_per_block=32,
 		minimum_nmin=100,
 		chunks=10
@@ -2168,9 +2174,10 @@ class Mecayotl(object):
 				rho=rho,
 				tol_covariance=tol_covariance,
 				init_tol=init_tol,
-				init_n_trials=init_n_trials,
-				init_min_det=init_min_det,
 				init_reg_covar=init_reg_covar,
+				init_max_iter=init_max_iter,
+				init_min_det=init_min_det,
+				init_n_trials=init_n_trials,
 				threads_per_block=threads_per_block,
 				minimum_nmin=minimum_nmin,
 				chunks=chunks
