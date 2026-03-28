@@ -721,7 +721,7 @@ class Mecayotl(object):
 				rho=rho,
 				tol_covariance=tol_covariance,
 				init_tol=init_tol,
-				init_n_trials=init_max_iters,
+				init_n_trials=init_n_trials,
 				init_params="GMM",
 				init_min_det=init_min_det,
 				init_reg_covar=init_reg_covar,
