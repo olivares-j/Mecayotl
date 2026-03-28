@@ -655,7 +655,16 @@ class Mecayotl(object):
 		print("Data correctly assembled")
 
 	def infer_models(self,case="Field",instance="Real",
-					tolerance=1e-5,init_min_det=1e-3):
+					tolerance=1e-5,
+					max_iter=10000,
+					rho=1.0,
+					tol_covariance=1e-2,
+					init_tol=1e-3,
+					init_n_trials=10,
+					init_params="GMM",
+					init_min_det=1e-3,
+					init_reg_covar=1e-2,
+					threads_per_block=32):
 		"""
 		Fit Gaussian Mixture Models (GMM) to either the Field or Cluster
 		data stored in HDF5 for a given instance.
@@ -702,12 +711,20 @@ class Mecayotl(object):
 
 			#--------------- Do inference (fit GMM with max components) ----------------------------------------
 			print("Inferring model with {0} components.".format(max_n_components))
-			gmm = self.GMM(dimension=6,n_components=max_n_components)
+			gmm = self.GMM(dimension=6,
+				n_components=max_n_components,
+				threads_per_block=threads_per_block)
 			gmm.setup(X,uncertainty=U)
 			# The local GMM's fit will handle initialization and optimization.
 			gmm.fit(tol=tolerance,
-				init_min_det=init_min_det,
+				max_iter=max_iter,
+				rho=rho,
+				tol_covariance=tol_covariance,
+				init_tol=init_tol,
+				init_n_trials=init_max_iters,
 				init_params="GMM",
+				init_min_det=init_min_det,
+				init_reg_covar=init_reg_covar,
 				random_state=self.random_state)
 			#--------------------------------------------------------------------
 
@@ -1601,11 +1618,20 @@ class Mecayotl(object):
 		#===================================================================
 
 	def run_real(self,file_catalogue,file_members,
-				n_cluster=int(1e5),n_field=int(1e5),
+				n_cluster=int(1e5),
+				n_field=int(1e5),
 				replace_probabilities=False,
 				use_prior_probabilities=False,
 				best_model_criterion="AIC",
+				tolerance=1e-5,
+				max_iter=10000,
+				rho=1.0,
+				tol_covariance=1e-2,
+				init_tol=1e-3,
+				init_n_trials=10,
 				init_min_det=1e-3,
+				init_reg_covar=1e-2,
+				threads_per_block=32,
 				minimum_nmin=100,
 				chunks=1):
 		"""
@@ -1632,10 +1658,20 @@ class Mecayotl(object):
 		#------------------------------------------------------
 
 		#--------------- Infer models for Field and Cluster ---------------------
-		self.infer_models(case="Field",  instance="Real",
-				init_min_det=init_min_det)
-		self.infer_models(case="Cluster",instance="Real",
-				init_min_det=init_min_det)
+		for case in ["Field","Cluster"]:
+			self.infer_models(
+					case=case,
+					instance="Real",
+					tolerance=tolerance,
+					max_iter=max_iter,
+					rho=rho,
+					tol_covariance=tol_covariance,
+					init_tol=init_tol,
+					init_n_trials=init_n_trials,
+					init_params=init_params,
+					init_min_det=init_min_det,
+					init_reg_covar=init_reg_covar,
+					threads_per_block=threads_per_block)
 		#-------------------------------------------------
 
 		#------------- Select best models (if not already chosen) --------------------------
@@ -2038,7 +2074,7 @@ class Mecayotl(object):
 			kal.convergence()
 			kal.plot_chains()
 			kal.plot_prior_check()
-			kal.plot_model(chain=1)
+			kal.plot_model()
 			kal.save_statistics(hdi_prob=args["hdi_prob"])
 
 	def run(self,iterations,
@@ -2048,11 +2084,19 @@ class Mecayotl(object):
 		n_cluster_real=int(1e3),
 		n_field_real=int(1e3),
 		n_samples_syn=int(1e3),
-		minimum_nmin=100,
-		init_min_det=1e-3,
-		best_model_criterion="AIC",
 		replace_probabilities=False,
 		use_prior_probabilities=False,
+		best_model_criterion="AIC",
+		tolerance=1e-5,
+		max_iter=10000,
+		rho=1.0,
+		tol_covariance=1e-2,
+		init_tol=1e-3,
+		init_n_trials=10,
+		init_min_det=1e-3,
+		init_reg_covar=1e-2,
+		threads_per_block=32,
+		minimum_nmin=100,
 		chunks=10
 		):
 		"""
@@ -2115,12 +2159,20 @@ class Mecayotl(object):
 				file_members=file_members,
 				n_cluster=n_cluster_real,
 				n_field=n_field_real,
-				best_model_criterion=best_model_criterion,
 				replace_probabilities=replace_probabilities,
 				use_prior_probabilities=use_prior_probabilities,
-				minimum_nmin=minimum_nmin,
+				best_model_criterion=best_model_criterion,
+				tolerance=tolerance,
+				max_iter=max_iter,
+				rho=rho,
+				tol_covariance=tol_covariance,
+				init_tol=init_tol,
+				init_n_trials=init_n_trials,
 				init_min_det=init_min_det,
-				chunks=chunks,
+				init_reg_covar=init_reg_covar,
+				threads_per_block=threads_per_block,
+				minimum_nmin=minimum_nmin,
+				chunks=chunks
 				)
 			#----------------------------------------------------
 
