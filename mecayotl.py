@@ -1629,6 +1629,7 @@ class Mecayotl(object):
 				tol_covariance=1e-2,
 				init_tol=1e-3,
 				init_n_trials=10,
+				init_params="GMM",
 				init_min_det=1e-3,
 				init_reg_covar=1e-2,
 				threads_per_block=32,
