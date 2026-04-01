@@ -29,7 +29,7 @@ A recommended environment creation (example using conda):
 
 conda create -n mecayotl -c conda-forge python==3.13 pymc scipy astropy pandas h5py dill extinction tqdm numba astroquery scikit-learn orjson emcee corner
 conda activate mecayotl
-conda install -c conda-forge asciitree configobj pytables
+conda install -c conda-forge asciitree configobj pytables jinja2
 
 You will also need to instal the following packages:
 - pygaia for synthetic data generation

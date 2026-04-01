@@ -427,7 +427,10 @@ class Mecayotl(object):
 		os.makedirs(dir_main + "/Kalkayotl",exist_ok=True)
 		#-------------------------------------------
 
-	def generate_true_cluster(self,file_kalkayotl,n_cluster=int(1e5),instance="Real"):
+	def generate_true_cluster(self,file_kalkayotl,
+		n_cluster=int(1e5),
+		instance="Real",
+		gaia_release="dr3"):
 		"""
 		Generate synthetic data based on Kalkayotl input parameters.
 
@@ -442,10 +445,12 @@ class Mecayotl(object):
 						"file":file_kalkayotl,
 						"statistic":self.kalkayotl_args["statistic"]},
 					  isochrones_args=self.isochrones_args,
-					  reference_system=self.reference_system,
+					  
 					  radial_velocity={
 					  	"labels":{"radial_velocity":"dr3_radial_velocity"},
 					  	"family":"Gaia"},
+					  reference_system=self.reference_system,
+					  release=gaia_release,
 					  seed=self.seed)
 
 		# X is raw phase-space output: Amasijo internal representation.
@@ -1141,7 +1146,7 @@ class Mecayotl(object):
 			hf.create_dataset("Field_nGMM",data=self.best_gmm[instance]["Field"])
 		#-----------------------------------------------------------
 
-	def generate_synthetic(self,n_cluster=int(1e5),seeds=range(1)):
+	def generate_synthetic(self,n_cluster=int(1e5),seeds=range(1),gaia_release="dr3"):
 		"""
 		Call Amasijo.generate_cluster for several seeds and create per-seed
 		directories with synthetic members CSVs. This method writes the
@@ -1181,6 +1186,8 @@ class Mecayotl(object):
 						radial_velocity={
 						"labels":{"radial_velocity":"radial_velocity"},
 						"family":"Gaia"},
+						reference_system=self.reference_system,
+						release=gaia_release,
 						seed=seed)
 			# Create CSV with synthetic members
 			ama.generate_cluster(file_smp,n_stars=n_cluster,
@@ -1775,6 +1782,7 @@ class Mecayotl(object):
 		df.loc[condition,"radial_velocity"] = np.nan
 		df.loc[condition,"radial_velocity_error"]  = np.nan
 		#-------------------------------------------------------------------------
+		
 		#------------- Drop Binaries based on ruwe threshold --------------------------
 		n_binaries = sum(df["ruwe"] >= args["ruwe_threshold"])
 		if n_binaries > 0:
