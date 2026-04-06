@@ -411,7 +411,7 @@ class Mecayotl(object):
 		self.file_cln_mem    = dir_main + "/Kalkayotl/clean_members.csv"
 		self.file_par_kal    = dir_main + "/Kalkayotl/{0}/Cluster_statistics.csv".format(
 			self.kalkayotl_args["distribution"])
-		self.file_smp_base   = dir_main + "/{0}/Data/members_synthetic.csv"
+		self.file_smp_base   = dir_main + "/{0}/Data/members_synthetic.h5"
 		self.file_data_base  = dir_main + "/{0}/Data/data.h5"
 		self.file_model_base = dir_main + "/{0}/Models/{1}_GMM_{2}.h5"
 		self.file_comparison = dir_main + "/{0}/Models/{1}_comparison.png"
@@ -480,7 +480,7 @@ class Mecayotl(object):
 		df_syn = df_syn.loc[valid_syn]
 
 		# Save synthetic members to CSV (index label source_id to match other code)
-		df_syn.to_csv(file_smp,index_label="source_id")
+		df_syn.to_hdf(file_smp,key="syn")
 
 	def assemble_data(self,file_catalogue,file_members,
 					n_field=int(1e5),
@@ -534,16 +534,14 @@ class Mecayotl(object):
 
 		#----------- Synthetic cluster sample -------------------------------------------
 		print("Reading synthetic ...")
-		df_syn = pd.read_csv(file_smp,usecols=self.OBS)
+		df_syn = pd.read_hdf(file_smp,key="syn")
 		valid_syn = np.full(len(df_syn),fill_value=True)
 		for obs in self.OBS:
 			valid_syn &= df_syn[obs] > self.observable_limits[obs]["inf"]
 			valid_syn &= df_syn[obs] < self.observable_limits[obs]["sup"]
 
 		print("There are {0} valid synthetic sources".format(len(valid_syn)))
-		# Randomly choose n_field synthetic samples to represent the field distribution.
-		idx_rnd  = np.random.choice(len(valid_syn),size=n_field,replace=False)
-		mu_syn = df_syn.loc[valid_syn].iloc[idx_rnd]
+		mu_syn = df_syn.loc[valid_syn]
 		# sg_syn is synthetic covariance placeholder (zeros here, replaced later if needed)
 		sg_syn = np.zeros((len(mu_syn),6,6))
 		del df_syn
@@ -1242,7 +1240,7 @@ class Mecayotl(object):
 			print("Saving cluster data of seed {0} ...".format(seed))
 
 			#-------- Read cluster CSV and compute uncertainties placeholders -------
-			df_cls = pd.read_csv(file_smp,usecols=columns)
+			df_cls = pd.read_hdf(file_smp,key="amasijo")
 			# Set ruwe to unity for synthetic stars as default
 			df_cls["ruwe"] = 1.0
 			n_cls  = len(df_cls)
